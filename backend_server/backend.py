@@ -1,6 +1,6 @@
 import json
 import datetime
-from flask import Flask, request, Response, stream_with_context
+from flask import Flask, request, Response, stream_with_context, send_file
 from flask_cors import CORS
 from openai import OpenAI
 
@@ -8,6 +8,7 @@ import config
 from database import collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
+from tts import generate_tts_audio
 
 # --- SERVER SETUP ---
 app = Flask(__name__)
@@ -18,6 +19,18 @@ nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_AP
 
 
 # --- API ROUTES ---
+
+@app.route("/tts", methods=["POST"])
+def tts_endpoint():
+    data = request.json
+    text = data.get("text", "")
+    
+    if not text:
+        return {"error": "No text provided"}, 400
+
+    audio_stream = generate_tts_audio(text)
+    return send_file(audio_stream, mimetype="audio/mpeg")
+
 
 @app.route("/update-news", methods=["POST"])
 def update_news():

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Newspaper,
+  Volume2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -40,6 +41,24 @@ function App() {
       alert("Error updating news: " + e);
     }
     setNewsLoading(false);
+  };
+
+  // Function to play TTS
+  const playAudio = async (text) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    } catch (e) {
+      console.error("Audio playback error:", e);
+    }
   };
 
   // Function to send message
@@ -162,14 +181,26 @@ function App() {
 
                 {/* Final Answer */}
                 {msg.content && (
-                  <div
-                    className={`p-4 rounded-2xl shadow-lg mt-2 leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-blue-600 text-white rounded-tr-none"
-                        : "bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700"
-                    }`}
-                  >
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <div className="relative group">
+                    <div
+                      className={`p-4 rounded-2xl shadow-lg mt-2 leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-blue-600 text-white rounded-tr-none"
+                          : "bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700"
+                      }`}
+                    >
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                    {/* TTS Button (Only for AI) */}
+                    {msg.role === "ai" && msg.content && (
+                      <button
+                        onClick={() => playAudio(msg.content)}
+                        className="absolute -right-8 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Read Aloud"
+                      >
+                        <Volume2 size={18} />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
