@@ -1,4 +1,5 @@
 import GooeyNav from '../components/GooeyNav';
+import Header from '../components/Header';
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Hyperspeed, { hyperspeedPresets } from '../components/Hyperspeed';
@@ -34,35 +35,15 @@ const LandingPage = () => {
     return (
         <div className="relative w-full min-h-screen bg-black text-white selection:bg-indigo-500/30">
             {/* Fixed Background */}
-            <div className="fixed inset-0 z-0">
+            <div className="fixed -top-[20%] left-0 right-0 bottom-0 z-0">
                 <Hyperspeed effectOptions={hyperspeedPresets.one} />
             </div>
 
             {/* Scrollable Content Overlay */}
             <div className="relative z-10 flex flex-col min-h-screen">
                 {/* Header */}
-                <header className="flex justify-between items-center p-6 lg:px-12 backdrop-blur-[2px] fixed top-0 w-full z-50 border-b border-white/5">
-                    {/* Logo */}
-                    <div className="flex items-center gap-2 font-bold text-2xl tracking-tighter">
-                        <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-2 rounded-lg backdrop-blur-sm border border-indigo-500/20 shadow-[0_0_15px_-3px_rgba(99,102,241,0.3)]">
-                            <Bot size={28} className="text-indigo-400" />
-                        </div>
-                        <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">Genis</span>
-                    </div>
-
-                    {/* Navigation */}
-                    <div className="relative" style={{ height: '40px' }}>
-                        <GooeyNav
-                            items={navItems}
-                            particleCount={15}
-                            particleDistances={[50, 5]}
-                            particleR={50}
-                            initialActiveIndex={0}
-                            animationTime={600}
-                            colors={[1, 2, 3]}
-                        />
-                    </div>
-                </header>
+                {/* Header */}
+                <Header />
 
                 <main className="flex-1">
                     {/* Hero Section */}
@@ -71,7 +52,7 @@ const LandingPage = () => {
 
                         <div className="relative w-full max-w-4xl flex flex-col items-center justify-center">
                             <h1 className="text-7xl md:text-9xl font-bold text-white relative z-20 mb-4 tracking-tighter">
-                                Genis
+                                Creaty
                             </h1>
                             <div className="w-[40rem] h-40 relative">
                                 {/* Gradients */}
@@ -115,7 +96,7 @@ const LandingPage = () => {
 
                         <div className="max-w-7xl mx-auto relative z-10">
                             <div className="text-center mb-20">
-                                <h2 className="text-4xl md:text-5xl font-bold mb-6">Why Qwenify?</h2>
+                                <h2 className="text-4xl md:text-5xl font-bold mb-6">Why Creaty?</h2>
                                 <p className="text-slate-400 max-w-2xl mx-auto">
                                     Built for performance, privacy, and precision. We combine the power of large language models with local retrieval augmented generation.
                                 </p>
@@ -177,7 +158,7 @@ const LandingPage = () => {
                         <a href="#" className="hover:text-purple-400 transition-colors">GitHub</a>
                         <a href="#" className="hover:text-purple-400 transition-colors">Discord</a>
                     </div>
-                    <p>&copy; {new Date().getFullYear()} Qwenify. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Creaty. All rights reserved.</p>
                 </footer>
             </div>
         </div>

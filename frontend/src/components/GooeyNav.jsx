@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const GooeyNav = ({
   items,
@@ -15,6 +16,10 @@ const GooeyNav = ({
   const filterRef = useRef(null);
   const textRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
+
+  useEffect(() => {
+    setActiveIndex(initialActiveIndex);
+  }, [initialActiveIndex]);
 
   const noise = (n = 1) => n / 2 - Math.random() * n;
   const getXY = (distance, pointIndex, totalPoints) => {
@@ -110,12 +115,22 @@ const GooeyNav = ({
       }
     }
   };
+  const isInitialMount = useRef(true);
+
   useEffect(() => {
     if (!navRef.current || !containerRef.current) return;
     const activeLi = navRef.current.querySelectorAll('li')[activeIndex];
     if (activeLi) {
       updateEffectPosition(activeLi);
       textRef.current?.classList.add('active');
+
+      // Trigger particles on route change (but not on initial mount)
+      if (!isInitialMount.current && filterRef.current) {
+        const particles = filterRef.current.querySelectorAll('.particle');
+        particles.forEach(p => filterRef.current.removeChild(p));
+        makeParticles(filterRef.current);
+      }
+      isInitialMount.current = false;
     }
     const resizeObserver = new ResizeObserver(() => {
       const currentActiveLi = navRef.current?.querySelectorAll('li')[activeIndex];
@@ -289,14 +304,14 @@ const GooeyNav = ({
                 className={`rounded-full relative cursor-pointer transition-[background-color_color_box-shadow] duration-300 ease shadow-[0_0_0.5px_1.5px_transparent] text-white ${activeIndex === index ? 'active' : ''
                   }`}
               >
-                <a
+                <Link
                   onClick={e => handleClick(e, index)}
-                  href={item.href}
+                  to={item.href}
                   onKeyDown={e => handleKeyDown(e, index)}
                   className="outline-none py-[0.6em] px-[1em] inline-block font-medium"
                 >
                   {item.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
