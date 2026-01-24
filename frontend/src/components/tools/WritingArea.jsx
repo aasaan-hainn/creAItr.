@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export default function WritingArea({ projectId }) {
+export default function WritingArea({ projectId, token }) {
     const [content, setContent] = useState("");
     const [showPreview, setShowPreview] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -21,7 +21,11 @@ export default function WritingArea({ projectId }) {
     const loadContent = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`);
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await response.json();
             setContent(data.writing || "");
         } catch (error) {
@@ -49,7 +53,10 @@ export default function WritingArea({ projectId }) {
         try {
             await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
                 body: JSON.stringify({ writing: content })
             });
             setSaved(true);

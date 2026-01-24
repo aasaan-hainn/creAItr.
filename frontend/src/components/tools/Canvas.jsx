@@ -3,7 +3,7 @@ import { Download, Trash2, Circle, Square, Minus, Save, Check } from "lucide-rea
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export default function Canvas({ projectId }) {
+export default function Canvas({ projectId, token }) {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [tool, setTool] = useState("pen");
@@ -16,25 +16,54 @@ export default function Canvas({ projectId }) {
 
     // Load canvas on mount
     useEffect(() => {
-        if (projectId) {
+        if (projectId && canvasRef.current) {
             loadCanvas();
         }
     }, [projectId]);
 
+    // Initialize canvas when ref is available
+    useEffect(() => {
+        if (canvasRef.current && loading) {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (projectId) {
+                loadCanvas();
+            } else {
+                setLoading(false);
+            }
+        }
+    }, [canvasRef.current]);
+
     const loadCanvas = async () => {
-        setLoading(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`);
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await response.json();
 
             const canvas = canvasRef.current;
+            if (!canvas) {
+                setLoading(false);
+                return;
+            }
             const ctx = canvas.getContext("2d");
 
-            if (data.canvas) {
-                // Load saved image data
+            if (data.canvas && data.canvas.startsWith('data:image')) {
+                // Load saved image data (base64 PNG)
                 const img = new Image();
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0);
+                    setLoading(false);
+                };
+                img.onerror = () => {
+                    // If image fails to load, initialize with empty canvas
+                    ctx.fillStyle = "#1e293b";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                     setLoading(false);
                 };
                 img.src = data.canvas;
@@ -48,9 +77,11 @@ export default function Canvas({ projectId }) {
             console.error("Error loading canvas:", error);
             // Initialize empty canvas on error
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext("2d");
-            ctx.fillStyle = "#1e293b";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (canvas) {
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
             setLoading(false);
         }
     };
@@ -65,7 +96,10 @@ export default function Canvas({ projectId }) {
 
             await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
                 body: JSON.stringify({ canvas: canvasData })
             });
             setSaved(true);
@@ -88,6 +122,8 @@ export default function Canvas({ projectId }) {
 
     const startDrawing = (e) => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -106,6 +142,8 @@ export default function Canvas({ projectId }) {
         if (!isDrawing) return;
 
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -124,6 +162,8 @@ export default function Canvas({ projectId }) {
         if (!isDrawing) return;
 
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -157,6 +197,8 @@ export default function Canvas({ projectId }) {
 
     const clearCanvas = () => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const ctx = canvas.getContext("2d");
         ctx.fillStyle = "#1e293b";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -165,6 +207,8 @@ export default function Canvas({ projectId }) {
 
     const downloadCanvas = () => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
+
         const url = canvas.toDataURL("image/png");
         const link = document.createElement("a");
         link.href = url;
@@ -278,22 +322,23 @@ export default function Canvas({ projectId }) {
             </div>
 
             {/* Canvas Area */}
-            <div className="flex-1 flex items-center justify-center p-4">
-                {loading ? (
-                    <div className="text-slate-500">Loading canvas...</div>
-                ) : (
-                    <canvas
-                        ref={canvasRef}
-                        width={800}
-                        height={500}
-                        onMouseDown={startDrawing}
-                        onMouseMove={draw}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                        className="border border-white/20 rounded-lg cursor-crosshair"
-                        style={{ maxWidth: "100%", height: "auto" }}
-                    />
+            <div className="flex-1 flex items-center justify-center p-4 relative">
+                {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                        <div className="text-slate-500">Loading canvas...</div>
+                    </div>
                 )}
+                <canvas
+                    ref={canvasRef}
+                    width={800}
+                    height={500}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    className="border border-white/20 rounded-lg cursor-crosshair"
+                    style={{ maxWidth: "100%", height: "auto" }}
+                />
             </div>
         </div>
     );

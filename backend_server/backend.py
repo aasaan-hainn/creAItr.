@@ -7,10 +7,11 @@ from bson import ObjectId
 
 import config
 from database import collection
-from mongodb import projects_collection
+from mongodb import projects_collection, users_collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
+from auth import hash_password, verify_password, generate_token, verify_token, token_required
 
 # --- SERVER SETUP ---
 app = Flask(__name__)
@@ -21,6 +22,142 @@ nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_AP
 
 
 # --- API ROUTES ---
+
+
+# --- AUTHENTICATION ROUTES ---
+
+@app.route("/auth/register", methods=["POST"])
+def register():
+    """Register a new user"""
+    data = request.json
+    
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    confirm_password = data.get("confirmPassword", "")
+    social_accounts = data.get("socialAccounts", [])  # Array of {platform, handle}
+    
+    # Validation
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+    
+    if password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+    
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+    
+    # Check if user already exists
+    existing_user = users_collection.find_one({"email": email})
+    if existing_user:
+        return jsonify({"error": "Email already exists"}), 409
+    
+    # Create user
+    hashed_password = hash_password(password)
+    user = {
+        "email": email,
+        "password": hashed_password,
+        "socialAccounts": social_accounts,  # Store as array
+        "createdAt": datetime.datetime.now().isoformat()
+    }
+    
+    result = users_collection.insert_one(user)
+    user_id = str(result.inserted_id)
+    
+    # Generate token
+    token = generate_token(user_id, email)
+    
+    return jsonify({
+        "message": "User registered successfully",
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": email,
+            "socialAccounts": social_accounts
+        }
+    }), 201
+
+
+@app.route("/auth/login", methods=["POST"])
+def login():
+    """Login user and return JWT token"""
+    data = request.json
+    
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+    
+    # Find user
+    user = users_collection.find_one({"email": email})
+    if not user:
+        return jsonify({"error": "Invalid email or password"}), 401
+    
+    # Verify password
+    if not verify_password(password, user["password"]):
+        return jsonify({"error": "Invalid email or password"}), 401
+    
+    # Generate token
+    user_id = str(user["_id"])
+    token = generate_token(user_id, email)
+    
+    return jsonify({
+        "message": "Login successful",
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": user["email"],
+            "socialAccounts": user.get("socialAccounts", [])
+        }
+    })
+
+
+@app.route("/auth/verify", methods=["GET"])
+def verify_auth():
+    """Verify JWT token and return user data"""
+    token = None
+    
+    if 'Authorization' in request.headers:
+        auth_header = request.headers['Authorization']
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+    
+    if not token:
+        return jsonify({"valid": False, "error": "No token provided"}), 401
+    
+    payload = verify_token(token)
+    if not payload:
+        return jsonify({"valid": False, "error": "Invalid or expired token"}), 401
+    
+    # Get user from database
+    user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
+    if not user:
+        return jsonify({"valid": False, "error": "User not found"}), 404
+    
+    return jsonify({
+        "valid": True,
+        "user": {
+            "id": str(user["_id"]),
+            "email": user["email"],
+            "socialAccounts": user.get("socialAccounts", [])
+        }
+    })
+
+
+@app.route("/auth/me", methods=["GET"])
+@token_required
+def get_current_user():
+    """Get current logged-in user profile"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({
+        "id": str(user["_id"]),
+        "email": user["email"],
+        "socialAccounts": user.get("socialAccounts", []),
+        "createdAt": user.get("createdAt", "")
+    })
 
 
 @app.route("/tts", methods=["POST"])
@@ -125,9 +262,10 @@ def chat():
 # --- PROJECT ROUTES ---
 
 @app.route("/projects", methods=["GET"])
+@token_required
 def get_projects():
-    """Get all projects"""
-    projects = list(projects_collection.find().sort("created", -1))
+    """Get all projects for the logged-in user"""
+    projects = list(projects_collection.find({"userId": request.user_id}).sort("created", -1))
     # Convert ObjectId to string for JSON serialization
     for project in projects:
         project["_id"] = str(project["_id"])
@@ -135,13 +273,15 @@ def get_projects():
 
 
 @app.route("/projects", methods=["POST"])
+@token_required
 def create_project():
-    """Create a new project"""
+    """Create a new project for the logged-in user"""
     data = request.json
     name = data.get("name", "Untitled Project")
     
     project = {
         "name": name,
+        "userId": request.user_id,
         "created": datetime.datetime.now().isoformat()
     }
     
@@ -152,9 +292,15 @@ def create_project():
 
 
 @app.route("/projects/<project_id>", methods=["PUT"])
+@token_required
 def update_project(project_id):
-    """Update a project"""
+    """Update a project (only if owned by user)"""
     data = request.json
+    
+    # Check ownership
+    project = projects_collection.find_one({"_id": ObjectId(project_id), "userId": request.user_id})
+    if not project:
+        return jsonify({"error": "Project not found or access denied"}), 404
     
     update_data = {}
     if "name" in data:
@@ -167,22 +313,20 @@ def update_project(project_id):
         )
     
     project = projects_collection.find_one({"_id": ObjectId(project_id)})
-    if project:
-        project["_id"] = str(project["_id"])
-        return jsonify(project)
-    
-    return jsonify({"error": "Project not found"}), 404
+    project["_id"] = str(project["_id"])
+    return jsonify(project)
 
 
 @app.route("/projects/<project_id>", methods=["DELETE"])
+@token_required
 def delete_project(project_id):
-    """Delete a project"""
-    result = projects_collection.delete_one({"_id": ObjectId(project_id)})
+    """Delete a project (only if owned by user)"""
+    result = projects_collection.delete_one({"_id": ObjectId(project_id), "userId": request.user_id})
     
     if result.deleted_count > 0:
         return jsonify({"status": "deleted"})
     
-    return jsonify({"error": "Project not found"}), 404
+    return jsonify({"error": "Project not found or access denied"}), 404
 
 
 # --- WORKSPACE ROUTES ---

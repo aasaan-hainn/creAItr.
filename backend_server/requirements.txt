@@ -9,3 +9,5 @@ pypdf
 edge-tts
 pymongo
 cloudinary
+bcrypt
+PyJWT

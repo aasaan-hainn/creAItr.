@@ -27,3 +27,6 @@ CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 # Server
 PORT = int(os.getenv("PORT", 5000))
+
+# JWT
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default-secret-change-me")

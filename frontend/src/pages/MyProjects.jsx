@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { FloatingDock } from '../components/ui/floating-dock';
 import AIChat from '../components/tools/AIChat';
@@ -6,6 +7,7 @@ import VideoEditor from '../components/tools/VideoEditor';
 import PhotoEditor from '../components/tools/PhotoEditor';
 import Canvas from '../components/tools/Canvas';
 import WritingArea from '../components/tools/WritingArea';
+import { useAuth } from '../context/AuthContext';
 import {
     IconMessageChatbot,
     IconVideo,
@@ -21,6 +23,9 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const MyProjects = () => {
+    const { isAuthenticated, token, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
+
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState(null);
     const [activeTool, setActiveTool] = useState(null);
@@ -29,14 +34,38 @@ const MyProjects = () => {
     const [newProjectName, setNewProjectName] = useState('');
     const [creating, setCreating] = useState(false);
 
-    // Fetch projects on mount
+    // Helper function to get auth headers
+    const getAuthHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    });
+
+    // Redirect if not authenticated
     useEffect(() => {
-        fetchProjects();
-    }, []);
+        if (!authLoading && !isAuthenticated) {
+            navigate('/auth');
+        }
+    }, [authLoading, isAuthenticated, navigate]);
+
+    // Fetch projects on mount (only if authenticated)
+    useEffect(() => {
+        if (isAuthenticated && token) {
+            fetchProjects();
+        }
+    }, [isAuthenticated, token]);
 
     const fetchProjects = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/projects`);
+            const response = await fetch(`${API_BASE_URL}/projects`, {
+                headers: getAuthHeaders()
+            });
+            if (!response.ok) {
+                if (response.status === 401) {
+                    navigate('/auth');
+                    return;
+                }
+                throw new Error('Failed to fetch projects');
+            }
             const data = await response.json();
             setProjects(data);
             if (data.length > 0 && !selectedProject) {
@@ -56,7 +85,7 @@ const MyProjects = () => {
         try {
             const response = await fetch(`${API_BASE_URL}/projects`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ name: newProjectName.trim() })
             });
             const newProject = await response.json();
@@ -77,7 +106,8 @@ const MyProjects = () => {
 
         try {
             await fetch(`${API_BASE_URL}/projects/${projectId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
             setProjects(projects.filter(p => p._id !== projectId));
             if (selectedProject === projectId) {
@@ -117,15 +147,15 @@ const MyProjects = () => {
 
         switch (activeTool) {
             case 'ai-chat':
-                return <AIChat hideSidebar={true} projectId={selectedProject} />;
+                return <AIChat hideSidebar={true} projectId={selectedProject} token={token} />;
             case 'video-editor':
-                return <VideoEditor projectId={selectedProject} />;
+                return <VideoEditor projectId={selectedProject} token={token} />;
             case 'photo-editor':
-                return <PhotoEditor projectId={selectedProject} />;
+                return <PhotoEditor projectId={selectedProject} token={token} />;
             case 'canvas':
-                return <Canvas projectId={selectedProject} />;
+                return <Canvas projectId={selectedProject} token={token} />;
             case 'writing-area':
-                return <WritingArea projectId={selectedProject} />;
+                return <WritingArea projectId={selectedProject} token={token} />;
             default:
                 return (
                     <div className="flex items-center justify-center h-full text-slate-500">
@@ -215,11 +245,10 @@ const MyProjects = () => {
                         </button>
                     </div>
                 </div>
-
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col gap-4 border border-white/10 rounded-3xl p-4 bg-white/[0.02] overflow-hidden">
                     {/* Project Toolbar */}
-                    <div className="h-20 w-full border border-white/10 rounded-2xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-hidden group shrink-0">
+                    <div className="h-20 w-full border border-white/10 rounded-2xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-visible group shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
                         <div className="flex items-center justify-center w-full">
                             <FloatingDock
@@ -234,7 +263,7 @@ const MyProjects = () => {
 
                     {/* Tool Area */}
                     <div className="flex-1 flex flex-col rounded-2xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
-                        <div className="absolute inset-0">
+                        <div className="absolute inset-0 overflow-auto">
                             {renderTool()}
                         </div>
                     </div>
