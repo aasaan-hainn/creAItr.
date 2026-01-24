@@ -20,11 +20,12 @@ nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_AP
 
 # --- API ROUTES ---
 
+
 @app.route("/tts", methods=["POST"])
 def tts_endpoint():
     data = request.json
     text = data.get("text", "")
-    
+
     if not text:
         return {"error": "No text provided"}, 400
 
@@ -37,12 +38,12 @@ def update_news():
     """Trigger this button from frontend to refresh news & PDFS"""
     # 1. Clear old news to prevent stale data
     clear_existing_news()
-    
+
     # 2. Fetch fresh data
     rss_titles = fetch_and_store_news()
     newsapi_titles = fetch_newsapi_data()
     pdf_files = ingest_local_pdfs()
-    
+
     summary = rss_titles + newsapi_titles + [f"PDF: {f}" for f in pdf_files]
     return {"status": "success", "articles": summary}
 
@@ -63,7 +64,7 @@ def chat():
 
         # 2. Prepare System Prompt
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        
+
         system_instruction = f"""
         You are a helpful assistant for daily life.
         Today's Date: {today}
@@ -87,7 +88,7 @@ def chat():
 
         # 3. Construct Message Chain
         messages_payload = [{"role": "system", "content": system_instruction}]
-        
+
         for msg in history:
             role = "assistant" if msg["role"] == "ai" else "user"
             messages_payload.append({"role": role, "content": msg["content"]})
@@ -120,4 +121,5 @@ def chat():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=config.PORT, debug=False)
+    app.run(host="0.0.0.0", port=config.PORT, debug=True)
+
