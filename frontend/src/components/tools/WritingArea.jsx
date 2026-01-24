@@ -1,10 +1,65 @@
-import { useState } from "react";
-import { Bold, Italic, Underline, Download, Copy } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Bold, Italic, Underline, Download, Copy, Save, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-export default function WritingArea() {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export default function WritingArea({ projectId }) {
     const [content, setContent] = useState("");
     const [showPreview, setShowPreview] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Load content on mount or projectId change
+    useEffect(() => {
+        if (projectId) {
+            loadContent();
+        }
+    }, [projectId]);
+
+    const loadContent = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`);
+            const data = await response.json();
+            setContent(data.writing || "");
+        } catch (error) {
+            console.error("Error loading content:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Debounced auto-save
+    useEffect(() => {
+        if (!projectId || loading) return;
+
+        const timeout = setTimeout(() => {
+            saveContent();
+        }, 1000); // Auto-save after 1 second of no typing
+
+        return () => clearTimeout(timeout);
+    }, [content, projectId]);
+
+    const saveContent = async () => {
+        if (!projectId) return;
+
+        setSaving(true);
+        try {
+            await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ writing: content })
+            });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (error) {
+            console.error("Error saving content:", error);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const applyFormat = (format) => {
         const textarea = document.getElementById("writing-textarea");
@@ -46,6 +101,14 @@ export default function WritingArea() {
         alert("Copied to clipboard!");
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-full text-slate-500">
+                Loading...
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-black/20 backdrop-blur-sm rounded-xl border border-white/10">
             {/* Toolbar */}
@@ -72,6 +135,23 @@ export default function WritingArea() {
                     >
                         <Underline size={18} className="text-slate-300" />
                     </button>
+
+                    {/* Save Status */}
+                    <div className="flex items-center gap-1 ml-4 text-xs text-slate-500">
+                        {saving ? (
+                            <>
+                                <Save size={14} className="animate-pulse" />
+                                <span>Saving...</span>
+                            </>
+                        ) : saved ? (
+                            <>
+                                <Check size={14} className="text-green-500" />
+                                <span className="text-green-500">Saved</span>
+                            </>
+                        ) : (
+                            <span>Auto-save enabled</span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex gap-2">

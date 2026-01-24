@@ -7,3 +7,5 @@ python-dotenv
 requests
 pypdf
 edge-tts
+pymongo
+cloudinary

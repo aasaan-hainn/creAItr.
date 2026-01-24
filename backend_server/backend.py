@@ -1,11 +1,13 @@
 import json
 import datetime
-from flask import Flask, request, Response, stream_with_context, send_file
+from flask import Flask, request, Response, stream_with_context, send_file, jsonify
 from flask_cors import CORS
 from openai import OpenAI
+from bson import ObjectId
 
 import config
 from database import collection
+from mongodb import projects_collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
@@ -118,6 +120,200 @@ def chat():
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# --- PROJECT ROUTES ---
+
+@app.route("/projects", methods=["GET"])
+def get_projects():
+    """Get all projects"""
+    projects = list(projects_collection.find().sort("created", -1))
+    # Convert ObjectId to string for JSON serialization
+    for project in projects:
+        project["_id"] = str(project["_id"])
+    return jsonify(projects)
+
+
+@app.route("/projects", methods=["POST"])
+def create_project():
+    """Create a new project"""
+    data = request.json
+    name = data.get("name", "Untitled Project")
+    
+    project = {
+        "name": name,
+        "created": datetime.datetime.now().isoformat()
+    }
+    
+    result = projects_collection.insert_one(project)
+    project["_id"] = str(result.inserted_id)
+    
+    return jsonify(project), 201
+
+
+@app.route("/projects/<project_id>", methods=["PUT"])
+def update_project(project_id):
+    """Update a project"""
+    data = request.json
+    
+    update_data = {}
+    if "name" in data:
+        update_data["name"] = data["name"]
+    
+    if update_data:
+        projects_collection.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": update_data}
+        )
+    
+    project = projects_collection.find_one({"_id": ObjectId(project_id)})
+    if project:
+        project["_id"] = str(project["_id"])
+        return jsonify(project)
+    
+    return jsonify({"error": "Project not found"}), 404
+
+
+@app.route("/projects/<project_id>", methods=["DELETE"])
+def delete_project(project_id):
+    """Delete a project"""
+    result = projects_collection.delete_one({"_id": ObjectId(project_id)})
+    
+    if result.deleted_count > 0:
+        return jsonify({"status": "deleted"})
+    
+    return jsonify({"error": "Project not found"}), 404
+
+
+# --- WORKSPACE ROUTES ---
+
+@app.route("/projects/<project_id>/workspace/canvas", methods=["GET"])
+def get_canvas(project_id):
+    """Get canvas data for a project"""
+    project = projects_collection.find_one({"_id": ObjectId(project_id)})
+    if project:
+        workspace = project.get("workspace", {})
+        return jsonify({"canvas": workspace.get("canvas", "")})
+    return jsonify({"error": "Project not found"}), 404
+
+
+@app.route("/projects/<project_id>/workspace/canvas", methods=["PUT"])
+def save_canvas(project_id):
+    """Save canvas data for a project"""
+    data = request.json
+    canvas_data = data.get("canvas", "")
+    
+    projects_collection.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"workspace.canvas": canvas_data}}
+    )
+    return jsonify({"status": "saved"})
+
+
+@app.route("/projects/<project_id>/workspace/writing", methods=["GET"])
+def get_writing(project_id):
+    """Get writing content for a project"""
+    project = projects_collection.find_one({"_id": ObjectId(project_id)})
+    if project:
+        workspace = project.get("workspace", {})
+        return jsonify({"writing": workspace.get("writing", "")})
+    return jsonify({"error": "Project not found"}), 404
+
+
+@app.route("/projects/<project_id>/workspace/writing", methods=["PUT"])
+def save_writing(project_id):
+    """Save writing content for a project"""
+    data = request.json
+    writing_content = data.get("writing", "")
+    
+    projects_collection.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$set": {"workspace.writing": writing_content}}
+    )
+    return jsonify({"status": "saved"})
+
+
+@app.route("/projects/<project_id>/workspace/chat", methods=["GET"])
+def get_chat_history(project_id):
+    """Get chat history for a project"""
+    project = projects_collection.find_one({"_id": ObjectId(project_id)})
+    if project:
+        workspace = project.get("workspace", {})
+        return jsonify({"chatHistory": workspace.get("chatHistory", [])})
+    return jsonify({"error": "Project not found"}), 404
+
+
+@app.route("/projects/<project_id>/workspace/chat", methods=["POST"])
+def add_chat_message(project_id):
+    """Add a chat message to project history"""
+    data = request.json
+    message = {
+        "role": data.get("role"),
+        "content": data.get("content"),
+        "thought": data.get("thought", ""),
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    
+    projects_collection.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$push": {"workspace.chatHistory": message}}
+    )
+    return jsonify({"status": "added", "message": message})
+
+
+@app.route("/projects/<project_id>/workspace/upload", methods=["POST"])
+def upload_media(project_id):
+    """Upload media to Cloudinary and save reference"""
+    from cloudinary_config import upload_image, upload_video
+    
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files["file"]
+    media_type = request.form.get("type", "image")
+    
+    # Check file size
+    file.seek(0, 2)  # Seek to end
+    file_size = file.tell()
+    file.seek(0)  # Reset to beginning
+    
+    max_size = 100 * 1024 * 1024 if media_type == "video" else 10 * 1024 * 1024
+    if file_size > max_size:
+        limit = "100MB" if media_type == "video" else "10MB"
+        return jsonify({"error": f"File too large. Max size is {limit}"}), 400
+    
+    try:
+        if media_type == "video":
+            result = upload_video(file, folder=f"qwenify/{project_id}/videos")
+        else:
+            result = upload_image(file, folder=f"qwenify/{project_id}/images")
+        
+        media_entry = {
+            "type": media_type,
+            "url": result["url"],
+            "publicId": result["public_id"],
+            "name": file.filename,
+            "uploadedAt": datetime.datetime.now().isoformat()
+        }
+        
+        projects_collection.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$push": {"workspace.media": media_entry}}
+        )
+        
+        return jsonify(media_entry), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/projects/<project_id>/workspace/media", methods=["GET"])
+def get_media(project_id):
+    """Get all media for a project"""
+    project = projects_collection.find_one({"_id": ObjectId(project_id)})
+    if project:
+        workspace = project.get("workspace", {})
+        return jsonify({"media": workspace.get("media", [])})
+    return jsonify({"error": "Project not found"}), 404
 
 
 if __name__ == "__main__":

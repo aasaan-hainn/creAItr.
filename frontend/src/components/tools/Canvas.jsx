@@ -1,22 +1,90 @@
 import { useRef, useState, useEffect } from "react";
-import { Download, Trash2, Circle, Square, Minus } from "lucide-react";
+import { Download, Trash2, Circle, Square, Minus, Save, Check } from "lucide-react";
 
-export default function Canvas() {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export default function Canvas({ projectId }) {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [tool, setTool] = useState("pen"); // pen, eraser, circle, square, line
+    const [tool, setTool] = useState("pen");
     const [color, setColor] = useState("#ffffff");
     const [brushSize, setBrushSize] = useState(3);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [loading, setLoading] = useState(true);
 
+    // Load canvas on mount
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (canvas) {
+        if (projectId) {
+            loadCanvas();
+        }
+    }, [projectId]);
+
+    const loadCanvas = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`);
+            const data = await response.json();
+
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+
+            if (data.canvas) {
+                // Load saved image data
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0);
+                    setLoading(false);
+                };
+                img.src = data.canvas;
+            } else {
+                // Initialize empty canvas
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error("Error loading canvas:", error);
+            // Initialize empty canvas on error
+            const canvas = canvasRef.current;
             const ctx = canvas.getContext("2d");
             ctx.fillStyle = "#1e293b";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            setLoading(false);
         }
-    }, []);
+    };
+
+    const saveCanvas = async () => {
+        if (!projectId || !canvasRef.current) return;
+
+        setSaving(true);
+        try {
+            const canvas = canvasRef.current;
+            const canvasData = canvas.toDataURL("image/png");
+
+            await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ canvas: canvasData })
+            });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (error) {
+            console.error("Error saving canvas:", error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Auto-save on drawing stop
+    const handleDrawingEnd = () => {
+        setIsDrawing(false);
+        // Debounced save after drawing
+        setTimeout(() => {
+            saveCanvas();
+        }, 500);
+    };
 
     const startDrawing = (e) => {
         const canvas = canvasRef.current;
@@ -84,7 +152,7 @@ export default function Canvas() {
             }
         }
 
-        setIsDrawing(false);
+        handleDrawingEnd();
     };
 
     const clearCanvas = () => {
@@ -92,6 +160,7 @@ export default function Canvas() {
         const ctx = canvas.getContext("2d");
         ctx.fillStyle = "#1e293b";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveCanvas();
     };
 
     const downloadCanvas = () => {
@@ -171,6 +240,23 @@ export default function Canvas() {
                         />
                         <span className="text-xs text-slate-400 w-8">{brushSize}px</span>
                     </div>
+
+                    {/* Save Status */}
+                    <div className="flex items-center gap-1 ml-4 text-xs text-slate-500">
+                        {saving ? (
+                            <>
+                                <Save size={14} className="animate-pulse" />
+                                <span>Saving...</span>
+                            </>
+                        ) : saved ? (
+                            <>
+                                <Check size={14} className="text-green-500" />
+                                <span className="text-green-500">Saved</span>
+                            </>
+                        ) : (
+                            <span>Auto-save enabled</span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -193,17 +279,21 @@ export default function Canvas() {
 
             {/* Canvas Area */}
             <div className="flex-1 flex items-center justify-center p-4">
-                <canvas
-                    ref={canvasRef}
-                    width={800}
-                    height={500}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    className="border border-white/20 rounded-lg cursor-crosshair"
-                    style={{ maxWidth: "100%", height: "auto" }}
-                />
+                {loading ? (
+                    <div className="text-slate-500">Loading canvas...</div>
+                ) : (
+                    <canvas
+                        ref={canvasRef}
+                        width={800}
+                        height={500}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        className="border border-white/20 rounded-lg cursor-crosshair"
+                        style={{ maxWidth: "100%", height: "auto" }}
+                    />
+                )}
             </div>
         </div>
     );

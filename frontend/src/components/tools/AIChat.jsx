@@ -15,18 +15,20 @@ import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 
-function AIChat({ hideSidebar = false }) {
-  const [messages, setMessages] = useState([
-    {
-      role: "ai",
-      content:
-        "Hello! I am connected to **Qwen 3 (NVIDIA)** and your local **News Database**. \n\nI can analyze PDFs, read the latest news, and answer your questions with real-time reasoning.",
-      thought: "",
-    },
-  ]);
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const DEFAULT_MESSAGE = {
+  role: "ai",
+  content: "Hello! I am connected to **Qwen 3 (NVIDIA)** and your local **News Database**. \n\nI can analyze PDFs, read the latest news, and answer your questions with real-time reasoning.",
+  thought: "",
+};
+
+function AIChat({ hideSidebar = false, projectId = null }) {
+  const [messages, setMessages] = useState([DEFAULT_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -34,6 +36,46 @@ function AIChat({ hideSidebar = false }) {
   };
 
   useEffect(scrollToBottom, [messages]);
+
+  // Load chat history for project
+  useEffect(() => {
+    if (projectId) {
+      loadChatHistory();
+    } else {
+      setMessages([DEFAULT_MESSAGE]);
+    }
+  }, [projectId]);
+
+  const loadChatHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/chat`);
+      const data = await response.json();
+      if (data.chatHistory && data.chatHistory.length > 0) {
+        setMessages(data.chatHistory);
+      } else {
+        setMessages([DEFAULT_MESSAGE]);
+      }
+    } catch (error) {
+      console.error("Error loading chat history:", error);
+      setMessages([DEFAULT_MESSAGE]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const saveChatMessage = async (message) => {
+    if (!projectId) return;
+    try {
+      await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message),
+      });
+    } catch (error) {
+      console.error("Error saving chat message:", error);
+    }
+  };
 
   // Function to refresh news database
   const updateNews = async () => {
@@ -76,6 +118,9 @@ function AIChat({ hideSidebar = false }) {
     setInput("");
     setLoading(true);
 
+    // Save user message to project history
+    saveChatMessage(userMsg);
+
     // Create a placeholder for AI response
     const aiMsgId = Date.now();
     setMessages((prev) => [
@@ -91,7 +136,7 @@ function AIChat({ hideSidebar = false }) {
       }));
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/chat`,
+        `${API_BASE_URL}/chat`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,6 +146,10 @@ function AIChat({ hideSidebar = false }) {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+
+      // Track accumulated content for saving
+      let accumulatedContent = "";
+      let accumulatedThought = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -116,6 +165,12 @@ function AIChat({ hideSidebar = false }) {
 
             try {
               const data = JSON.parse(jsonStr);
+
+              if (data.type === "thought") {
+                accumulatedThought += data.content;
+              } else {
+                accumulatedContent += data.content;
+              }
 
               setMessages((prev) =>
                 prev.map((msg) => {
@@ -134,6 +189,11 @@ function AIChat({ hideSidebar = false }) {
             }
           }
         }
+      }
+
+      // Save AI response to project history
+      if (accumulatedContent) {
+        saveChatMessage({ role: "ai", content: accumulatedContent, thought: accumulatedThought });
       }
     } catch (e) {
       console.error(e);
