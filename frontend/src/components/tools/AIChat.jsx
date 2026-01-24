@@ -144,8 +144,8 @@ function AIChat({ hideSidebar = false }) {
   return (
     <div className="flex h-full bg-black text-slate-100 font-sans overflow-hidden relative selection:bg-indigo-500/30">
       {/* Background Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
+      {/* <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" /> */}
 
       {/* Sidebar */}
       {!hideSidebar && (
@@ -221,98 +221,98 @@ function AIChat({ hideSidebar = false }) {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col w-full relative z-10 max-w-6xl mx-auto">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-          <AnimatePresence initial={false}>
-            {messages.map((msg, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className={`flex gap-4 md:gap-6 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-              >
-                {/* Avatar */}
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-lg ${
-                    msg.role === "ai"
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent flex flex-col justify-end">
+          <div className="space-y-8">
+            <AnimatePresence initial={false}>
+              {messages.map((msg, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex gap-4 md:gap-6 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                >
+                  {/* Avatar */}
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-lg ${msg.role === "ai"
                       ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
                       : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-                  }`}
-                >
-                  {msg.role === "ai" ? <Bot size={20} /> : <User size={20} />}
-                </div>
+                      }`}
+                  >
+                    {msg.role === "ai" ? <Bot size={20} /> : <User size={20} />}
+                  </div>
 
-                {/* Bubble */}
-                <div
-                  className={`flex flex-col max-w-[85%] md:max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}
-                >
-                  {/* Thinking Box (Only for AI) */}
-                  {msg.thought && <ThoughtBox text={msg.thought} />}
+                  {/* Bubble */}
+                  <div
+                    className={`flex flex-col max-w-[85%] md:max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}
+                  >
+                    {/* Thinking Box (Only for AI) */}
+                    {msg.thought && <ThoughtBox text={msg.thought} />}
 
-                  {/* Final Answer */}
-                  {msg.content && (
-                    <div className="relative group">
-                      <div
-                        className={`p-5 rounded-2xl shadow-xl backdrop-blur-sm leading-relaxed text-[0.95rem] md:text-base ${
-                          msg.role === "user"
+                    {/* Final Answer */}
+                    {msg.content && (
+                      <div className="relative group">
+                        <div
+                          className={`p-5 rounded-2xl shadow-xl backdrop-blur-sm leading-relaxed text-[0.95rem] md:text-base ${msg.role === "user"
                             ? "bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-tr-none border border-white/10"
                             : "bg-white/5 text-slate-200 rounded-tl-none border border-white/10 hover:bg-white/10 transition-colors"
-                        }`}
-                      >
-                        <ReactMarkdown
-                          components={{
-                            code: ({ node, ...props }) => (
-                              <code
-                                className="bg-black/30 rounded px-1 py-0.5 text-indigo-300 font-mono text-sm"
-                                {...props}
-                              />
-                            ),
-                            pre: ({ node, ...props }) => (
-                              <pre
-                                className="bg-black/50 p-4 rounded-lg overflow-x-auto my-2 text-sm border border-white/5"
-                                {...props}
-                              />
-                            ),
-                            a: ({ node, ...props }) => (
-                              <a
-                                className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
-                                {...props}
-                              />
-                            ),
-                            ul: ({ node, ...props }) => (
-                              <ul
-                                className="list-disc pl-4 space-y-1 my-2"
-                                {...props}
-                              />
-                            ),
-                            ol: ({ node, ...props }) => (
-                              <ol
-                                className="list-decimal pl-4 space-y-1 my-2"
-                                {...props}
-                              />
-                            ),
-                          }}
+                            }`}
                         >
-                          {msg.content}
-                        </ReactMarkdown>
+                          <ReactMarkdown
+                            components={{
+                              code: ({ node, ...props }) => (
+                                <code
+                                  className="bg-black/30 rounded px-1 py-0.5 text-indigo-300 font-mono text-sm"
+                                  {...props}
+                                />
+                              ),
+                              pre: ({ node, ...props }) => (
+                                <pre
+                                  className="bg-black/50 p-4 rounded-lg overflow-x-auto my-2 text-sm border border-white/5"
+                                  {...props}
+                                />
+                              ),
+                              a: ({ node, ...props }) => (
+                                <a
+                                  className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+                                  {...props}
+                                />
+                              ),
+                              ul: ({ node, ...props }) => (
+                                <ul
+                                  className="list-disc pl-4 space-y-1 my-2"
+                                  {...props}
+                                />
+                              ),
+                              ol: ({ node, ...props }) => (
+                                <ol
+                                  className="list-decimal pl-4 space-y-1 my-2"
+                                  {...props}
+                                />
+                              ),
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                        {/* TTS Button (Only for AI) */}
+                        {msg.role === "ai" && msg.content && (
+                          <button
+                            onClick={() => playAudio(msg.content)}
+                            className="absolute -right-10 top-2 p-2 text-slate-500 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Read Aloud"
+                          >
+                            <Volume2 size={20} />
+                          </button>
+                        )}
                       </div>
-                      {/* TTS Button (Only for AI) */}
-                      {msg.role === "ai" && msg.content && (
-                        <button
-                          onClick={() => playAudio(msg.content)}
-                          className="absolute -right-10 top-2 p-2 text-slate-500 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Read Aloud"
-                        >
-                          <Volume2 size={20} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          <div ref={messagesEndRef} />
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}
