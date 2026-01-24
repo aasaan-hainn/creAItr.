@@ -37,6 +37,15 @@ function AIChat({ hideSidebar = false, projectId = null }) {
 
   useEffect(scrollToBottom, [messages]);
 
+  // Restore pending message from Landing Page
+  useEffect(() => {
+    const pendingMsg = localStorage.getItem("pending_chat_message");
+    if (pendingMsg) {
+      setInput(pendingMsg);
+      localStorage.removeItem("pending_chat_message");
+    }
+  }, []);
+
   // Load chat history for project
   useEffect(() => {
     if (projectId) {
