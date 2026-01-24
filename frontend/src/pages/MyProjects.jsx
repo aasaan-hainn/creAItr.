@@ -7,6 +7,7 @@ import VideoEditor from '../components/tools/VideoEditor';
 import PhotoEditor from '../components/tools/PhotoEditor';
 import Canvas from '../components/tools/Canvas';
 import WritingArea from '../components/tools/WritingArea';
+import YouTubeStats from '../components/YouTubeStats';
 import { useAuth } from '../context/AuthContext';
 import {
     IconMessageChatbot,
@@ -261,28 +262,8 @@ const MyProjects = () => {
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col gap-4 border border-white/10 rounded-3xl p-4 bg-white/[0.02] overflow-hidden">
                     {showStats ? (
-                        /* Stats Section */
-                        <div className="flex-1 flex flex-col items-center justify-center text-center">
-                            <IconChartBar className="w-16 h-16 text-indigo-500/50 mb-4" />
-                            <h2 className="text-2xl font-semibold text-white mb-2">Stats Dashboard</h2>
-                            <p className="text-slate-500 max-w-md">
-                                Your analytics and insights will appear here. Track your project progress, engagement metrics, and more.
-                            </p>
-                            <div className="mt-8 grid grid-cols-3 gap-6">
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                                    <div className="text-3xl font-bold text-indigo-400">{projects.length}</div>
-                                    <div className="text-sm text-slate-500 mt-1">Total Projects</div>
-                                </div>
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                                    <div className="text-3xl font-bold text-green-400">0</div>
-                                    <div className="text-sm text-slate-500 mt-1">Published</div>
-                                </div>
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                                    <div className="text-3xl font-bold text-purple-400">0</div>
-                                    <div className="text-sm text-slate-500 mt-1">Draft</div>
-                                </div>
-                            </div>
-                        </div>
+                        /* Stats Section - YouTube Analytics */
+                        <YouTubeStats token={token} />
                     ) : (
                         <>
                             {/* Project Toolbar */}

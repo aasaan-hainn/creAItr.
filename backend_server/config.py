@@ -30,3 +30,6 @@ PORT = int(os.getenv("PORT", 5000))
 
 # JWT
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default-secret-change-me")
+
+# YouTube
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")

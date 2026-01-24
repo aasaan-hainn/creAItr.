@@ -11,3 +11,7 @@ pymongo
 cloudinary
 bcrypt
 PyJWT
+google-api-python-client
+matplotlib
+pandas
+numpy

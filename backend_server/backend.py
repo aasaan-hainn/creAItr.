@@ -12,6 +12,10 @@ from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
 from auth import hash_password, verify_password, generate_token, verify_token, token_required
+from youtube_stats import (
+    get_channel_stats, save_stats_snapshot, should_update_snapshot,
+    calculate_growth, generate_growth_graph, get_stats_history
+)
 
 # --- SERVER SETUP ---
 app = Flask(__name__)
@@ -158,6 +162,132 @@ def get_current_user():
         "socialAccounts": user.get("socialAccounts", []),
         "createdAt": user.get("createdAt", "")
     })
+
+
+# --- YOUTUBE STATS ROUTES ---
+
+@app.route("/stats/youtube/channel", methods=["GET"])
+@token_required
+def get_youtube_channel():
+    """Get user's saved YouTube channel ID"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({
+        "channelId": user.get("youtubeChannelId", ""),
+        "lastStatsUpdate": user.get("lastStatsUpdate", "").isoformat() if user.get("lastStatsUpdate") else None
+    })
+
+
+@app.route("/stats/youtube/channel", methods=["POST"])
+@token_required
+def save_youtube_channel():
+    """Save YouTube channel ID to user profile and take initial snapshot"""
+    data = request.json
+    channel_id = data.get("channelId", "").strip()
+    
+    if not channel_id:
+        return jsonify({"error": "Channel ID is required"}), 400
+    
+    # Verify channel exists by fetching stats
+    stats = get_channel_stats(channel_id)
+    if not stats:
+        return jsonify({"error": "Invalid channel ID or channel not found"}), 404
+    
+    # Save channel ID to user
+    users_collection.update_one(
+        {"_id": ObjectId(request.user_id)},
+        {"$set": {"youtubeChannelId": channel_id}}
+    )
+    
+    # Take initial snapshot for new channel
+    save_stats_snapshot(request.user_id, stats)
+    
+    return jsonify({
+        "message": "Channel saved successfully",
+        "channelId": channel_id,
+        "stats": stats
+    })
+
+
+@app.route("/stats/youtube/realtime", methods=["GET"])
+@token_required
+def get_realtime_stats():
+    """Fetch real-time YouTube channel statistics"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    channel_id = user.get("youtubeChannelId")
+    if not channel_id:
+        return jsonify({"error": "No YouTube channel configured"}), 400
+    
+    stats = get_channel_stats(channel_id)
+    if not stats:
+        return jsonify({"error": "Failed to fetch channel stats"}), 500
+    
+    # Check if we should save a new 30-day snapshot
+    if should_update_snapshot(request.user_id):
+        save_stats_snapshot(request.user_id, stats)
+    
+    return jsonify(stats)
+
+
+@app.route("/stats/youtube/growth", methods=["GET"])
+@token_required
+def get_growth_stats():
+    """Calculate and return growth percentages"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    channel_id = user.get("youtubeChannelId")
+    if not channel_id:
+        return jsonify({"error": "No YouTube channel configured"}), 400
+    
+    # Get current stats
+    current_stats = get_channel_stats(channel_id)
+    if not current_stats:
+        return jsonify({"error": "Failed to fetch channel stats"}), 500
+    
+    # Calculate growth
+    growth = calculate_growth(request.user_id, current_stats)
+    
+    return jsonify(growth)
+
+
+@app.route("/stats/youtube/graph", methods=["GET"])
+@token_required
+def get_growth_graph():
+    """Generate and return growth graph as base64 image"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    if not user.get("youtubeChannelId"):
+        return jsonify({"error": "No YouTube channel configured"}), 400
+    
+    graph_data = generate_growth_graph(request.user_id)
+    
+    if not graph_data:
+        return jsonify({"error": "Not enough data for graph (need at least 2 snapshots)"}), 400
+    
+    return jsonify({"graph": graph_data})
+
+
+@app.route("/stats/youtube/history", methods=["GET"])
+@token_required
+def get_stats_history_route():
+    """Get historical stats snapshots"""
+    history = get_stats_history(request.user_id, limit=12)
+    
+    # Convert datetime objects to ISO strings
+    for item in history:
+        if 'recordedAt' in item:
+            item['recordedAt'] = item['recordedAt'].isoformat()
+    
+    return jsonify({"history": history})
 
 
 @app.route("/tts", methods=["POST"])
