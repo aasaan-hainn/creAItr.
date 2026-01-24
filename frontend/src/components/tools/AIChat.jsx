@@ -10,10 +10,16 @@ import {
   Sparkles,
   Zap,
   ArrowLeft,
+  Plus,
+  MessageSquare,
+  Trash2,
+  Edit2,
+  Check,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -24,11 +30,21 @@ const DEFAULT_MESSAGE = {
 };
 
 function AIChat({ hideSidebar = false, projectId = null }) {
+  const { token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   const [messages, setMessages] = useState([DEFAULT_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [newsLoading, setNewsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  
+  // Standalone chat session state
+  const [chatSessions, setChatSessions] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
+
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -37,22 +53,51 @@ function AIChat({ hideSidebar = false, projectId = null }) {
 
   useEffect(scrollToBottom, [messages]);
 
-  // Load chat history for project
+  // Restore pending message from Landing Page
+  useEffect(() => {
+    const pendingMsg = localStorage.getItem("pending_chat_message");
+    if (pendingMsg) {
+      setInput(pendingMsg);
+      localStorage.removeItem("pending_chat_message");
+    }
+  }, []);
+
+  // Initial load: either project history or recent standalone chats
   useEffect(() => {
     if (projectId) {
       loadChatHistory();
-    } else {
-      setMessages([DEFAULT_MESSAGE]);
+    } else if (isAuthenticated && !hideSidebar) {
+      fetchRecentChatSessions();
     }
-  }, [projectId]);
+  }, [projectId, isAuthenticated, hideSidebar]);
+
+  const fetchRecentChatSessions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chats`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setChatSessions(data);
+    } catch (e) {
+      console.error("Error fetching sessions:", e);
+    }
+  };
 
   const loadChatHistory = async () => {
     setHistoryLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/chat`);
+      const url = projectId 
+        ? `${API_BASE_URL}/projects/${projectId}/workspace/chat`
+        : `${API_BASE_URL}/chats/${currentChatId}`;
+      
+      const response = await fetch(url, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const data = await response.json();
-      if (data.chatHistory && data.chatHistory.length > 0) {
-        setMessages(data.chatHistory);
+      
+      const history = projectId ? data.chatHistory : data.messages;
+      if (history && history.length > 0) {
+        setMessages(history);
       } else {
         setMessages([DEFAULT_MESSAGE]);
       }
@@ -64,16 +109,107 @@ function AIChat({ hideSidebar = false, projectId = null }) {
     }
   };
 
-  const saveChatMessage = async (message) => {
-    if (!projectId) return;
+  const startNewStandaloneChat = () => {
+    setCurrentChatId(null);
+    setMessages([DEFAULT_MESSAGE]);
+  };
+
+  const deleteChatSession = async (chatId, e) => {
+    e.stopPropagation();
+    if (!confirm("Delete this chat?")) return;
+    
     try {
-      await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/chat`, {
+      await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (currentChatId === chatId) {
+        startNewStandaloneChat();
+      }
+      fetchRecentChatSessions();
+    } catch (e) {
+      console.error("Error deleting chat:", e);
+    }
+  };
+
+  const renameChatSession = async (chatId) => {
+    if (!editingTitle.trim()) {
+      setEditingChatId(null);
+      return;
+    }
+    
+    try {
+      await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ title: editingTitle.trim() })
+      });
+      setEditingChatId(null);
+      fetchRecentChatSessions();
+    } catch (e) {
+      console.error("Error renaming chat:", e);
+    }
+  };
+
+  const saveChatMessage = async (message, existingChatId = null) => {
+    const targetChatId = existingChatId || currentChatId;
+    
+    // 1. If inside a project
+    if (projectId) {
+      try {
+        await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/chat`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(message),
+        });
+      } catch (error) {
+        console.error("Error saving project chat message:", error);
+      }
+      return null;
+    }
+
+    // 2. If standalone chat
+    if (!isAuthenticated) return null;
+
+    try {
+      let chatId = targetChatId;
+      
+      // Create new session if none exists
+      if (!chatId) {
+        const createRes = await fetch(`${API_BASE_URL}/chats`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ title: message.content.substring(0, 30) })
+        });
+        const newChat = await createRes.json();
+        chatId = newChat._id;
+        setCurrentChatId(chatId);
+        fetchRecentChatSessions(); // Refresh list
+      }
+
+      // Add message to session
+      await fetch(`${API_BASE_URL}/chats/${chatId}/message`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(message),
       });
-    } catch (error) {
-      console.error("Error saving chat message:", error);
+
+      return chatId;
+    } catch (e) {
+      console.error("Error saving standalone chat message:", e);
+      return null;
     }
   };
 
@@ -118,8 +254,9 @@ function AIChat({ hideSidebar = false, projectId = null }) {
     setInput("");
     setLoading(true);
 
-    // Save user message to project history
-    saveChatMessage(userMsg);
+    // Save user message and get chatId if it's new
+    const savedChatId = await saveChatMessage(userMsg);
+    const activeChatId = savedChatId || currentChatId;
 
     // Create a placeholder for AI response
     const aiMsgId = Date.now();
@@ -193,7 +330,11 @@ function AIChat({ hideSidebar = false, projectId = null }) {
 
       // Save AI response to project history
       if (accumulatedContent) {
-        saveChatMessage({ role: "ai", content: accumulatedContent, thought: accumulatedThought });
+        saveChatMessage({ 
+          role: "ai", 
+          content: accumulatedContent, 
+          thought: accumulatedThought 
+        }, activeChatId);
       }
     } catch (e) {
       console.error(e);
@@ -222,57 +363,116 @@ function AIChat({ hideSidebar = false, projectId = null }) {
             >
               <ArrowLeft size={16} /> Back to Home
             </Link>
-            <div className="flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 font-bold text-2xl">
+            <div className="flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 font-bold text-2xl mb-6">
               <Bot size={32} className="text-indigo-500" />
               <span>Creaty Chat</span>
             </div>
-            <p className="text-slate-500 text-sm mt-2">
-              AI-powered assistant with local knowledge retrieval.
-            </p>
+            
+            <button
+              onClick={startNewStandaloneChat}
+              className="w-full flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 p-3 rounded-xl transition-all text-sm font-medium mb-4 group"
+            >
+              <Plus size={18} className="text-indigo-400 group-hover:rotate-90 transition-transform" />
+              New Chat
+            </button>
           </div>
 
-          <div className="p-4 flex-1 overflow-y-auto space-y-2">
-            <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 px-2">
-              System Status
+          <div className="p-4 flex-1 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">
+              Recent Chats
             </div>
-            <div className="p-3 rounded-lg bg-white/5 border border-white/5 flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-slate-200">
-                  Qwen-72B
-                </div>
-                <div className="text-xs text-slate-500">Online via NVIDIA</div>
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-white/5 border border-white/5 flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-indigo-500" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-slate-200">
-                  Local Vector DB
-                </div>
-                <div className="text-xs text-slate-500">Ready for Query</div>
-              </div>
-            </div>
+            
+            <AnimatePresence>
+              {chatSessions.map((session) => (
+                <motion.div
+                  key={session._id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  onClick={() => {
+                    if (editingChatId !== session._id) {
+                      setCurrentChatId(session._id);
+                      loadChatHistory();
+                    }
+                  }}
+                  className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
+                    currentChatId === session._id 
+                    ? "bg-indigo-500/10 border-indigo-500/30 text-white" 
+                    : "border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 overflow-hidden flex-1">
+                    <MessageSquare size={16} className={currentChatId === session._id ? "text-indigo-400" : "text-slate-500"} />
+                    
+                    {editingChatId === session._id ? (
+                      <input
+                        autoFocus
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") renameChatSession(session._id);
+                          if (e.key === "Escape") setEditingChatId(null);
+                        }}
+                        onBlur={() => renameChatSession(session._id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-black/40 border border-indigo-500/50 rounded px-2 py-0.5 text-sm w-full outline-none text-white focus:ring-1 focus:ring-indigo-500"
+                      />
+                    ) : (
+                      <span className="text-sm truncate pr-2">{session.title}</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    {editingChatId === session._id ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          renameChatSession(session._id);
+                        }}
+                        className="p-1 hover:bg-emerald-500/20 rounded text-emerald-400"
+                      >
+                        <Check size={14} />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingChatId(session._id);
+                            setEditingTitle(session.title);
+                          }}
+                          className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-indigo-400"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => deleteChatSession(session._id, e)}
+                          className="p-1 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
 
-          <div className="p-4 border-t border-white/5">
+          <div className="p-4 border-t border-white/5 space-y-3">
             <button
               onClick={updateNews}
               disabled={newsLoading}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white p-3 rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 p-3 rounded-xl transition-all text-sm disabled:opacity-50"
             >
               <RefreshCw
-                size={18}
-                className={
-                  newsLoading
-                    ? "animate-spin"
-                    : "group-hover:rotate-180 transition-transform duration-500"
-                }
+                size={16}
+                className={newsLoading ? "animate-spin" : ""}
               />
-              {newsLoading ? "Ingesting Data..." : "Update Knowledge Base"}
+              {newsLoading ? "Updating..." : "Update Knowledge Base"}
             </button>
-            <div className="mt-4 text-center text-xs text-slate-600">
-              v1.2.0 • Powered by RAG
+            <div className="text-center text-[10px] text-slate-600">
+              Powered by RAG • Qwen 2.5
             </div>
           </div>
         </motion.div>

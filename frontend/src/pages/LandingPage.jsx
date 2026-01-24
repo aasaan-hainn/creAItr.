@@ -1,10 +1,11 @@
 import GooeyNav from '../components/GooeyNav';
 import Header from '../components/Header';
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Hyperspeed, { hyperspeedPresets } from '../components/Hyperspeed';
-import { Bot, Zap, Shield, Globe, Cpu, Radio } from 'lucide-react';
+import { Bot, Zap, Shield, Globe, Cpu, Radio, ArrowRight, Sparkles } from 'lucide-react';
 import { SparklesCore } from '../components/SparklesCore';
+import { useAuth } from '../context/AuthContext';
 
 import { CardSpotlight } from '../components/ui/card-spotlight';
 
@@ -21,13 +22,30 @@ const FeatureCard = ({ icon: Icon, title, description }) => (
 );
 
 const LandingPage = () => {
+    const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
+    const [prompt, setPrompt] = useState("");
+
     // Scroll to top on mount
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
 
+    const handleStartChat = (e) => {
+        e.preventDefault();
+        if (!prompt.trim()) return;
+        
+        localStorage.setItem("pending_chat_message", prompt);
+        
+        if (isAuthenticated) {
+            navigate("/chat");
+        } else {
+            navigate("/auth");
+        }
+    };
+
     const navItems = [
-        { label: "My-Projects", href: "#" },
+        { label: "My-Projects", href: "/my-projects" },
         { label: "Support", href: "#" },
         { label: "Settings", href: "#" },
     ];
@@ -41,7 +59,6 @@ const LandingPage = () => {
 
             {/* Scrollable Content Overlay */}
             <div className="relative z-10 flex flex-col min-h-screen">
-                {/* Header */}
                 {/* Header */}
                 <Header />
 
@@ -80,14 +97,40 @@ const LandingPage = () => {
                             Stop Drafting. Start Dominating.
                         </p>
 
-                        <div className="flex flex-col sm:flex-row gap-6 mt-12 bg-transparent z-50">
-                            <Link to="/chat" className="px-8 py-4 bg-white text-black rounded-full font-bold text-lg hover:scale-105 transition-all duration-200 shadow-[0_0_40px_-5px_rgba(255,255,255,0.4)] flex items-center gap-2">
-                                <Zap className="w-5 h-5 fill-current" />
-                                Start Chatting
-                            </Link>
-                            <Link to="/chat" className="px-8 py-4 bg-white/5 text-white border border-white/10 backdrop-blur-md rounded-full font-bold text-lg hover:bg-white/10 transition-all duration-200 hover:border-white/20">
-                                View Demo
-                            </Link>
+                        <div className="flex flex-col items-center w-full max-w-xl mx-auto mt-8 z-50">
+                            <form onSubmit={handleStartChat} className="w-full relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                                <div className="relative flex items-center bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl">
+                                    <button 
+                                        type="button"
+                                        onClick={() => navigate("/chat")}
+                                        className="pl-4 text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer group/icon"
+                                        title="View Recent Chats"
+                                    >
+                                        <Sparkles size={20} className="group-hover/icon:scale-110 transition-transform" />
+                                    </button>
+                                    <input
+                                        type="text"
+                                        value={prompt}
+                                        onChange={(e) => setPrompt(e.target.value)}
+                                        placeholder="Ask anything... (e.g., 'Draft a marketing plan')"
+                                        className="w-full bg-transparent p-4 outline-none text-white placeholder-slate-500"
+                                    />
+                                    <button 
+                                        type="submit"
+                                        disabled={!prompt.trim()}
+                                        className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ArrowRight size={20} />
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <div className="flex gap-4 mt-6">
+                                <Link to="/chat" className="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                                    <Zap size={14} /> Skip to Dashboard
+                                </Link>
+                            </div>
                         </div>
                     </section>
 

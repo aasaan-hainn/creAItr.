@@ -65,7 +65,12 @@ const Auth = () => {
             if (isLogin) {
                 const result = await login(formData.email, formData.password);
                 if (result.success) {
-                    navigate('/my-projects');
+                    const pendingMsg = localStorage.getItem("pending_chat_message");
+                    if (pendingMsg) {
+                        navigate('/chat');
+                    } else {
+                        navigate('/my-projects');
+                    }
                 } else {
                     setError(result.error);
                 }
@@ -84,7 +89,12 @@ const Auth = () => {
                 });
 
                 if (result.success) {
-                    navigate('/my-projects');
+                    const pendingMsg = localStorage.getItem("pending_chat_message");
+                    if (pendingMsg) {
+                        navigate('/chat');
+                    } else {
+                        navigate('/my-projects');
+                    }
                 } else {
                     setError(result.error);
                 }

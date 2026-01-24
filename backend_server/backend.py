@@ -7,7 +7,7 @@ from bson import ObjectId
 
 import config
 from database import collection
-from mongodb import projects_collection, users_collection
+from mongodb import projects_collection, users_collection, chats_collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
@@ -588,6 +588,113 @@ def get_media(project_id):
         workspace = project.get("workspace", {})
         return jsonify({"media": workspace.get("media", [])})
     return jsonify({"error": "Project not found"}), 404
+
+
+# --- STANDALONE CHAT ROUTES ---
+
+@app.route("/chats", methods=["GET"])
+@token_required
+def get_recent_chats():
+    """Get all standalone chat sessions for the user"""
+    chats = list(chats_collection.find({"userId": request.user_id}).sort("updatedAt", -1))
+    for chat in chats:
+        chat["_id"] = str(chat["_id"])
+    return jsonify(chats)
+
+
+@app.route("/chats", methods=["POST"])
+@token_required
+def create_chat_session():
+    """Create a new standalone chat session"""
+    data = request.json
+    title = data.get("title", "New Chat")
+    
+    chat_session = {
+        "userId": request.user_id,
+        "title": title,
+        "messages": [],
+        "createdAt": datetime.datetime.now().isoformat(),
+        "updatedAt": datetime.datetime.now().isoformat()
+    }
+    
+    result = chats_collection.insert_one(chat_session)
+    chat_session["_id"] = str(result.inserted_id)
+    
+    return jsonify(chat_session), 201
+
+
+@app.route("/chats/<chat_id>", methods=["GET"])
+@token_required
+def get_chat_session(chat_id):
+    """Get a specific chat session (if owned by user)"""
+    chat = chats_collection.find_one({"_id": ObjectId(chat_id), "userId": request.user_id})
+    if not chat:
+        return jsonify({"error": "Chat session not found"}), 404
+    
+    chat["_id"] = str(chat["_id"])
+    return jsonify(chat)
+
+
+@app.route("/chats/<chat_id>/message", methods=["POST"])
+@token_required
+def add_chat_session_message(chat_id):
+    """Add a message to a standalone chat session"""
+    data = request.json
+    message = {
+        "role": data.get("role"),
+        "content": data.get("content"),
+        "thought": data.get("thought", ""),
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    
+    # Update title if it's the first user message
+    update_query = {"$push": {"messages": message}, "$set": {"updatedAt": datetime.datetime.now().isoformat()}}
+    
+    chat = chats_collection.find_one({"_id": ObjectId(chat_id), "userId": request.user_id})
+    if chat and len(chat.get("messages", [])) == 0 and message["role"] == "user":
+        # Simple title generation from first message
+        title = message["content"][:40] + ("..." if len(message["content"]) > 40 else "")
+        update_query["$set"]["title"] = title
+
+    chats_collection.update_one(
+        {"_id": ObjectId(chat_id), "userId": request.user_id},
+        update_query
+    )
+    
+    return jsonify({"status": "added", "message": message})
+
+
+@app.route("/chats/<chat_id>", methods=["DELETE"])
+@token_required
+def delete_chat_session(chat_id):
+    """Delete a chat session"""
+    result = chats_collection.delete_one({"_id": ObjectId(chat_id), "userId": request.user_id})
+    
+    if result.deleted_count > 0:
+        return jsonify({"status": "deleted"})
+    
+    return jsonify({"error": "Chat session not found"}), 404
+
+
+@app.route("/chats/<chat_id>", methods=["PATCH"])
+@token_required
+def rename_chat_session(chat_id):
+    """Rename a chat session"""
+    data = request.json
+    title = data.get("title")
+    
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+        
+    result = chats_collection.update_one(
+        {"_id": ObjectId(chat_id), "userId": request.user_id},
+        {"$set": {"title": title, "updatedAt": datetime.datetime.now().isoformat()}}
+    )
+    
+    if result.modified_count > 0:
+        return jsonify({"status": "renamed", "title": title})
+    
+    return jsonify({"error": "Chat session not found or access denied"}), 404
 
 
 if __name__ == "__main__":
