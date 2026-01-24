@@ -142,7 +142,7 @@ function AIChat({ hideSidebar = false }) {
   };
 
   return (
-    <div className="flex h-full bg-black text-slate-100 font-sans overflow-hidden relative selection:bg-indigo-500/30">
+    <div className="flex h-full bg-black text-slate-100 font-sans relative selection:bg-indigo-500/30">
       {/* Background Gradients */}
       {/* <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" /> */}
@@ -221,8 +221,8 @@ function AIChat({ hideSidebar = false }) {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col w-full relative z-10 max-w-6xl mx-auto">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent flex flex-col justify-end">
-          <div className="space-y-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <div className="min-h-full flex flex-col justify-end space-y-8">
             <AnimatePresence initial={false}>
               {messages.map((msg, idx) => (
                 <motion.div
