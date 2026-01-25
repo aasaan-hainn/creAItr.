@@ -15,11 +15,14 @@ import {
   SplitSquareHorizontal,
   Eye,
   Edit3,
+  Table,
+  Highlighter,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -125,6 +128,17 @@ export default function WritingArea({ projectId, token }) {
         break;
       case "underline":
         formattedText = `<u>${selectedText}</u>`;
+        break;
+      case "highlight":
+        formattedText = `<mark>${selectedText}</mark>`;
+        break;
+      case "table":
+        formattedText = `
+| Header 1 | Header 2 |
+| -------- | -------- |
+| Cell 1   | Cell 2   |
+| Cell 3   | Cell 4   |
+`;
         break;
       default:
         return;
@@ -268,7 +282,7 @@ export default function WritingArea({ projectId, token }) {
     <div className="h-full overflow-y-auto prose prose-invert max-w-none p-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={{
           code: ({ ...props }) => (
             <code
@@ -347,6 +361,20 @@ export default function WritingArea({ projectId, token }) {
             title="Underline"
           >
             <Underline size={18} className="text-slate-300" />
+          </button>
+          <button
+            onClick={() => applyFormat("table")}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Insert Table"
+          >
+            <Table size={18} className="text-slate-300" />
+          </button>
+          <button
+            onClick={() => applyFormat("highlight")}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Highlight"
+          >
+            <Highlighter size={18} className="text-slate-300" />
           </button>
 
           {/* Save Status */}
