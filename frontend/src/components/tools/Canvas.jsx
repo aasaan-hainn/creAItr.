@@ -70,6 +70,7 @@ export default function Canvas({ projectId, token }) {
                     // Old format: ignore or maybe we could load it as an image element in the future
                     // For now, we start fresh to avoid crashing Excalidraw
                     setInitialData(null);
+                    if (excalidrawAPI) excalidrawAPI.resetScene();
                 } else {
                     // Try to parse JSON data
                     try {
@@ -78,10 +79,20 @@ export default function Canvas({ projectId, token }) {
                             : data.canvas;
 
                         setInitialData(parsedData);
+                        if (excalidrawAPI) {
+                            excalidrawAPI.updateScene(parsedData);
+                        }
                     } catch (e) {
                         console.error("Failed to parse canvas data", e);
                         setInitialData(null);
+                        if (excalidrawAPI) excalidrawAPI.resetScene();
                     }
+                }
+            } else {
+                // No canvas data found for this project -> Reset to blank
+                setInitialData(null);
+                if (excalidrawAPI) {
+                    excalidrawAPI.resetScene();
                 }
             }
         } catch (error) {
