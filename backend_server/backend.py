@@ -226,6 +226,48 @@ def get_current_user():
 
 # --- YOUTUBE STATS ROUTES ---
 
+@app.route("/analytics", methods=["GET"])
+@token_required
+def get_analytics():
+    """
+    Get YouTube Analytics data (Mock Implementation).
+    Returns daily views, watch time, and subscriber growth for the last 30 days.
+    """
+    # Generate last 30 days of mock data
+    today = datetime.date.today()
+    rows = []
+    
+    # Base values for simulation
+    base_views = 150
+    base_watch_time = 400
+    
+    import random
+    
+    for i in range(30):
+        date = today - datetime.timedelta(days=29-i)
+        day_str = date.isoformat()
+        
+        # Add some randomness to make charts look realistic
+        daily_views = base_views + random.randint(-50, 100)
+        daily_watch_time = base_watch_time + random.randint(-100, 200)
+        
+        # Occasional spikes
+        if i % 7 == 0:  # Weekly spike
+            daily_views += 200
+            daily_watch_time += 300
+            
+        # Random subscriber gain (-1 to 5)
+        subs_gained = random.randint(-1, 5)
+        if daily_views > 300:
+            subs_gained += random.randint(1, 3)
+            
+        rows.append([day_str, daily_views, daily_watch_time, subs_gained])
+
+    return jsonify({
+        "columns": ["day", "views", "watchTimeMinutes", "subscribersGained"],
+        "rows": rows
+    })
+
 @app.route("/stats/youtube/channel", methods=["GET"])
 @token_required
 def get_youtube_channel():
