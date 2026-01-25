@@ -5,3 +5,4 @@ my_local_db/
 venv/
 .DS_Store
 GEMINI.md
+.vscode

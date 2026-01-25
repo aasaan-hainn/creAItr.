@@ -376,6 +376,9 @@ def chat():
 
         # 5. Stream Response
         for chunk in completion:
+            if not chunk.choices:
+                continue
+
             reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
             if reasoning:
                 yield f"data: {json.dumps({'type': 'thought', 'content': reasoning})}\n\n"
@@ -387,6 +390,94 @@ def chat():
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+@app.route("/generate-drawing", methods=["POST"])
+def generate_drawing():
+    """Generate Mermaid diagram from natural language prompt"""
+    data = request.json
+    prompt = data.get("prompt", "")
+    
+    if not prompt:
+        return jsonify({"error": "Prompt is required"}), 400
+    
+    system_prompt = """You are a diagram generation assistant. Your ONLY job is to convert user descriptions into valid Mermaid diagram syntax.
+
+CRITICAL RULES:
+1. Output ONLY the Mermaid code - no markdown code blocks, no explanations, no extra text
+2. Start directly with the diagram type (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, pie, gantt)
+3. Use simple, short labels (max 3-4 words per node)
+4. Prefer flowchart TD (top-down) for general diagrams
+5. Use proper Mermaid syntax with correct arrow types: -->, ---, -.->
+6. For flowcharts, use shapes: [rectangle], (rounded), {diamond}, ([stadium]), [[subroutine]]
+
+EXAMPLES OF VALID OUTPUT:
+
+For "user login process":
+flowchart TD
+    A[User] --> B[Enter Credentials]
+    B --> C{Valid?}
+    C -->|Yes| D[Dashboard]
+    C -->|No| E[Error Message]
+    E --> B
+
+For "API request flow":
+sequenceDiagram
+    Client->>Server: HTTP Request
+    Server->>Database: Query
+    Database-->>Server: Results
+    Server-->>Client: HTTP Response
+
+Remember: Output ONLY the Mermaid code, nothing else. Do NOT include any thinking or reasoning - just the diagram code."""
+
+    try:
+        completion = nvidia_client.chat.completions.create(
+            model=config.MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Create a diagram for: {prompt}"}
+            ],
+            temperature=0.3,
+            top_p=0.9,
+            max_tokens=1024,
+            stream=False,
+        )
+        
+        # Handle thinking models that may have None content
+        message = completion.choices[0].message
+        mermaid_code = message.content
+        
+        # If content is None, check for reasoning_content or other attributes
+        if mermaid_code is None:
+            # Try to get reasoning content for thinking models
+            reasoning = getattr(message, 'reasoning_content', None)
+            if reasoning:
+                # Extract mermaid code from reasoning if present
+                mermaid_code = reasoning
+            else:
+                return jsonify({"error": "AI returned empty response. Please try again."}), 500
+        
+        mermaid_code = mermaid_code.strip()
+        
+        # Clean up any markdown code blocks if present
+        if mermaid_code.startswith("```"):
+            lines = mermaid_code.split("\n")
+            # Remove first and last lines if they're code block markers
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            mermaid_code = "\n".join(lines)
+        
+        # Validate that we have something that looks like Mermaid code
+        valid_starts = ['flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram', 'pie', 'gantt', 'graph']
+        if not any(mermaid_code.strip().startswith(start) for start in valid_starts):
+            return jsonify({"error": "AI did not generate valid Mermaid diagram. Please try a different prompt."}), 500
+        
+        return jsonify({"mermaid": mermaid_code})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # --- PROJECT ROUTES ---
