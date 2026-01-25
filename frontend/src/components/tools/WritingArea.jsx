@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Bold, Italic, Underline, Download, Copy, Save, Check, Wand2, Sparkles, X, Send, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -280,8 +284,13 @@ export default function WritingArea({ projectId, token }) {
             {/* Editor/Preview Area */}
             <div className="flex-1 overflow-hidden p-4 relative">
                 {showPreview ? (
-                    <div className="h-full overflow-y-auto prose prose-invert max-w-none">
-                        <ReactMarkdown>{content || "*Nothing to preview*"}</ReactMarkdown>
+                    <div className="h-full overflow-y-auto prose prose-invert max-w-none p-4">
+                        <ReactMarkdown 
+                            remarkPlugins={[remarkGfm, remarkMath]} 
+                            rehypePlugins={[rehypeKatex]}
+                        >
+                            {content || "*Nothing to preview*"}
+                        </ReactMarkdown>
                     </div>
                 ) : (
                     <textarea
