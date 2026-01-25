@@ -376,6 +376,9 @@ def chat():
 
         # 5. Stream Response
         for chunk in completion:
+            if not chunk.choices:
+                continue
+
             reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
             if reasoning:
                 yield f"data: {json.dumps({'type': 'thought', 'content': reasoning})}\n\n"

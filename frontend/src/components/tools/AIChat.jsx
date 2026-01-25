@@ -84,6 +84,12 @@ function AIChat({ hideSidebar = false, projectId = null }) {
   };
 
   const loadChatHistory = async () => {
+    // Prevent fetching if no ID is available
+    if (!projectId && !currentChatId) {
+      setMessages([DEFAULT_MESSAGE]);
+      return;
+    }
+
     setHistoryLoading(true);
     try {
       const url = projectId 
