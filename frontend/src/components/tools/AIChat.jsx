@@ -15,6 +15,7 @@ import {
   Trash2,
   Edit2,
   Check,
+  Download,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
@@ -52,6 +53,7 @@ function AIChat({ hideSidebar = false, projectId = null }) {
   const [loading, setLoading] = useState(false);
   const [newsLoading, setNewsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Standalone chat session state
   const [chatSessions, setChatSessions] = useState([]);
@@ -60,6 +62,7 @@ function AIChat({ hideSidebar = false, projectId = null }) {
   const [editingTitle, setEditingTitle] = useState("");
 
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -362,6 +365,22 @@ function AIChat({ hideSidebar = false, projectId = null }) {
     setLoading(false);
   };
 
+  const exportChat = () => {
+    if (messages.length === 0) return;
+
+    const content = messages
+      .map((m) => `**${m.role === "ai" ? "AI" : "User"}**: ${m.content}\n${m.thought ? `> *Thought*: ${m.thought}\n` : ""}`)
+      .join("\n---\n\n");
+
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `creaitr-chat-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-full bg-black text-slate-100 font-sans relative selection:bg-indigo-500/30">
       {/* Background Gradients */}
@@ -499,6 +518,34 @@ function AIChat({ hideSidebar = false, projectId = null }) {
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col w-full relative z-10 max-w-6xl mx-auto">
+        {/* Chat Header */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/20 backdrop-blur-md z-20">
+          <div className="flex items-center gap-2">
+            <Bot size={18} className="text-indigo-400" />
+            <span className="font-medium text-slate-200 text-sm">
+              {projectId
+                ? "Project Workspace"
+                : chatSessions.find((s) => s._id === currentChatId)?.title || "New Conversation"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportChat}
+              className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+              title="Export Chat to Markdown"
+            >
+              <Download size={18} />
+            </button>
+            <button
+              onClick={() => { if(confirm("Clear current conversation?")) setMessages([DEFAULT_MESSAGE]); }}
+              className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+              title="Clear Conversation"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <div className="min-h-full flex flex-col justify-end space-y-8">
@@ -618,10 +665,39 @@ function AIChat({ hideSidebar = false, projectId = null }) {
               autoComplete="off"
             />
             <div className="flex gap-2 pb-1 pr-1">
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  setUploading(true);
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  try {
+                    const response = await fetch(`${API_BASE_URL}/upload`, {
+                      method: "POST",
+                      headers: { "Authorization": `Bearer ${token}` },
+                      body: formData,
+                    });
+                    if (response.ok) {
+                      alert("File uploaded successfully!");
+                    } else {
+                      alert("File upload failed.");
+                    }
+                  } catch (err) {
+                    alert("Error uploading file: " + err);
+                  }
+                  setUploading(false);
+                  e.target.value = null;
+                }}
+              />
               <button
-                disabled
-                className="p-2 text-slate-500 hover:text-indigo-400 transition-colors hover:bg-white/5 rounded-lg"
-                title="Upload File (Coming Soon)"
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                disabled={uploading}
+                className="p-2 text-slate-500 hover:text-indigo-400 transition-colors hover:bg-white/5 rounded-lg disabled:opacity-50"
+                title={uploading ? "Uploading..." : "Upload File"}
               >
                 <Sparkles size={20} />
               </button>
@@ -671,7 +747,7 @@ const ThoughtBox = ({ text }) => {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="bg-black/40 border-l-2 border-emerald-500/50 p-4 rounded-r-lg text-sm text-slate-400 font-mono text-xs leading-relaxed shadow-inner">
+            <div className="bg-black/40 border-l-2 border-emerald-500/50 p-4 rounded-r-lg text-xs text-slate-400 font-mono leading-relaxed shadow-inner">
               {text}
             </div>
           </motion.div>
