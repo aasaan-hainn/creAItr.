@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const GooeyNav = ({
   items,
@@ -88,7 +88,17 @@ const GooeyNav = ({
     Object.assign(textRef.current.style, styles);
     textRef.current.innerText = element.innerText;
   };
-  const handleClick = (e, index) => {
+  const navigate = useNavigate();
+
+  const handleClick = (e, index, href) => {
+    // Delay navigation if it's a real route change (not '#' and different active index)
+    if (href && href !== '#' && !href.startsWith('http') && activeIndex !== index) {
+      e.preventDefault();
+      setTimeout(() => {
+        navigate(href);
+      }, 500); // 500ms delay to allow animation to start
+    }
+
     const liEl = e.currentTarget;
     if (activeIndex === index) return;
     setActiveIndex(index);
@@ -106,12 +116,16 @@ const GooeyNav = ({
       makeParticles(filterRef.current);
     }
   };
-  const handleKeyDown = (e, index) => {
+
+  const handleKeyDown = (e, index, href) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       const liEl = e.currentTarget.parentElement;
       if (liEl) {
-        handleClick({ currentTarget: liEl }, index);
+        handleClick({ 
+            currentTarget: liEl, 
+            preventDefault: () => {} 
+        }, index, href);
       }
     }
   };
@@ -302,9 +316,9 @@ const GooeyNav = ({
                   }`}
               >
                 <Link
-                  onClick={e => handleClick(e, index)}
+                  onClick={e => handleClick(e, index, item.href)}
                   to={item.href}
-                  onKeyDown={e => handleKeyDown(e, index)}
+                  onKeyDown={e => handleKeyDown(e, index, item.href)}
                   className="outline-none py-[0.6em] px-[1em] inline-block font-medium"
                 >
                   {item.label}
