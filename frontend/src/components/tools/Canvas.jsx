@@ -367,7 +367,18 @@ export default function Canvas({ projectId, token }) {
                 </div>
             ) : (
                 <div className="flex-1 w-full h-full">
-                    <Excalidraw>
+                    <Excalidraw
+                        excalidrawAPI={(api) => setExcalidrawAPI(api)}
+                        initialData={initialData?.elements?.length > 0 ? initialData : undefined}
+                        onChange={handleChange}
+                        theme="dark"
+                        UIOptions={{
+                            canvasActions: {
+                                loadScene: false,
+                                saveToActiveFile: false,
+                            }
+                        }}
+                    >
                         <WelcomeScreen>
                             <WelcomeScreen.Hints.ToolbarHint>
                                 <p> ToolBar Hints </p>
