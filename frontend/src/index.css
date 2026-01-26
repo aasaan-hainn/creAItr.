@@ -2,27 +2,27 @@
 
 /* Custom Scrollbar - Dark Theme */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.4);
-    border-radius: 10px;
-    border: 2px solid transparent;
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
+  border: 2px solid transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(99, 102, 241, 0.6);
+  background: rgba(99, 102, 241, 0.6);
 }
 
 /* Firefox */
 * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.4) rgba(0, 0, 0, 0.3);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(0, 0, 0, 0.3);
 }
