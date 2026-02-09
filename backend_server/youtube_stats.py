@@ -92,19 +92,23 @@ def save_stats_snapshot(user_id: str, stats: dict) -> bool:
 
 
 def should_update_snapshot(user_id: str) -> bool:
-    """Check if 30 days have passed since last snapshot"""
+    """Check if a snapshot should be saved (once per day)"""
     from bson import ObjectId
     
-    user = users_collection.find_one({'_id': ObjectId(user_id)})
-    if not user:
-        return False
+    # Get the most recent snapshot
+    last_snapshot = channel_stats_collection.find_one(
+        {'userId': user_id},
+        sort=[('recordedAt', -1)]
+    )
     
-    last_update = user.get('lastStatsUpdate')
-    if not last_update:
+    if not last_snapshot:
         return True  # No previous update, should save
     
-    days_passed = (datetime.datetime.utcnow() - last_update).days
-    return days_passed >= 30
+    # Check if the last snapshot was on a different day
+    last_update = last_snapshot.get('recordedAt')
+    today = datetime.datetime.utcnow().date()
+    
+    return last_update.date() < today
 
 
 def get_stats_history(user_id: str, limit: int = 12) -> list:

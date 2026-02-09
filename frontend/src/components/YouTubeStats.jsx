@@ -167,13 +167,16 @@ const YouTubeStats = ({ token }) => {
 
         // Apply Time Filter
         if (range !== 'all') {
-            const now = new Date();
             const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
-            // Filter logic: Keep rows where date >= (today - days)
+            
+            // Normalize today to start of day (00:00:00) to ensure consistent comparison
             const cutoff = new Date();
-            cutoff.setDate(now.getDate() - days);
+            cutoff.setHours(0, 0, 0, 0);
+            cutoff.setDate(cutoff.getDate() - days);
             
             filteredRows = data.rows.filter(row => {
+                // Backend sends YYYY-MM-DD. 
+                // new Date("YYYY-MM-DD") creates a date at midnight UTC.
                 const rowDate = new Date(row[0]);
                 return rowDate >= cutoff;
             });
