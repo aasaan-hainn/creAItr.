@@ -264,6 +264,7 @@ def get_current_user():
 def get_analytics():
     """
     Get real YouTube Analytics data from database snapshots.
+    Returns cumulative stats (total views, subscribers) for meaningful graph display.
     """
     from mongodb import channel_stats_collection
 
@@ -280,26 +281,26 @@ def get_analytics():
             }
         )
 
+    # Deduplicate snapshots by date (keep latest snapshot per day)
+    seen_dates = {}
+    for s in snapshots:
+        day_str = s["recordedAt"].date().isoformat()
+        seen_dates[day_str] = s  # Later entries overwrite earlier ones
+    
+    # Convert back to sorted list
+    unique_snapshots = [seen_dates[key] for key in sorted(seen_dates.keys())]
+
     rows = []
-    for i in range(len(snapshots)):
-        s = snapshots[i]
+    for i, s in enumerate(unique_snapshots):
         day_str = s["recordedAt"].date().isoformat()
 
+        # Use cumulative totals for views (more meaningful for graphs)
         current_views = s.get("views", 0)
         current_subs = s.get("subscribers", 0)
 
-        # Calculate daily gain if not the first snapshot
-        if i > 0:
-            prev = snapshots[i - 1]
-            daily_views = max(0, current_views - prev.get("views", 0))
-            daily_subs = current_subs - prev.get("subscribers", 0)
-        else:
-            daily_views = 0
-            daily_subs = 0
-
-        # Note: Watch time is not tracked in basic snapshots, setting to 0 or estimated
-        # Using 0 for accuracy as requested "real data"
-        rows.append([day_str, daily_views, 0, daily_subs])
+        # Note: Watch time is not tracked in basic snapshots
+        # Using cumulative totals for both views and subscribers to show meaningful data
+        rows.append([day_str, current_views, 0, current_subs])
 
     return jsonify(
         {
@@ -438,6 +439,253 @@ def get_stats_history_route():
             item["recordedAt"] = item["recordedAt"].isoformat()
 
     return jsonify({"history": history})
+
+
+# --- YOUTUBE ANALYTICS OAUTH & DATE RANGE ROUTES ---
+
+
+@app.route("/auth/youtube/connect", methods=["GET"])
+@token_required
+def youtube_connect():
+    """
+    Redirect user to Google OAuth consent screen for YouTube Analytics access.
+    """
+    from urllib.parse import urlencode
+
+    if not config.GOOGLE_CLIENT_ID or not config.GOOGLE_CLIENT_SECRET:
+        return jsonify({"error": "OAuth not configured on server"}), 500
+
+    # YouTube Analytics API scope
+    scopes = [
+        "https://www.googleapis.com/auth/yt-analytics.readonly",
+        "https://www.googleapis.com/auth/youtube.readonly"
+    ]
+
+    params = {
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "redirect_uri": config.YOUTUBE_ANALYTICS_REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(scopes),
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": request.user_id  # Pass user ID to callback
+    }
+
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return jsonify({"authUrl": auth_url})
+
+
+@app.route("/auth/youtube/callback", methods=["GET"])
+def youtube_callback():
+    """
+    Handle OAuth callback from Google and store tokens.
+    """
+    code = request.args.get("code")
+    state = request.args.get("state")  # user_id
+    error = request.args.get("error")
+
+    if error:
+        return f"<html><body><h2>Authorization Failed</h2><p>{error}</p><script>window.close();</script></body></html>"
+
+    if not code or not state:
+        return "<html><body><h2>Invalid callback</h2><script>window.close();</script></body></html>"
+
+    # Exchange code for tokens
+    token_url = "https://oauth2.googleapis.com/token"
+    token_data = {
+        "code": code,
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_secret": config.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": config.YOUTUBE_ANALYTICS_REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
+
+    try:
+        response = requests.post(token_url, data=token_data)
+        tokens = response.json()
+
+        if "error" in tokens:
+            return f"<html><body><h2>Token Error</h2><p>{tokens.get('error_description', tokens['error'])}</p><script>window.close();</script></body></html>"
+
+        # Store tokens in user document
+        users_collection.update_one(
+            {"_id": ObjectId(state)},
+            {
+                "$set": {
+                    "youtubeAnalyticsTokens": {
+                        "access_token": tokens["access_token"],
+                        "refresh_token": tokens.get("refresh_token"),
+                        "expires_at": datetime.datetime.utcnow() + datetime.timedelta(seconds=tokens.get("expires_in", 3600))
+                    }
+                }
+            }
+        )
+
+        return """
+        <html>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h2 style="color: #22c55e;">✓ YouTube Analytics Connected!</h2>
+            <p>You can close this window and refresh the dashboard.</p>
+            <script>
+                if (window.opener) {
+                    window.opener.postMessage('youtube-analytics-connected', '*');
+                }
+                setTimeout(() => window.close(), 2000);
+            </script>
+        </body>
+        </html>
+        """
+
+    except Exception as e:
+        return f"<html><body><h2>Error</h2><p>{str(e)}</p><script>window.close();</script></body></html>"
+
+
+@app.route("/auth/youtube/status", methods=["GET"])
+@token_required
+def youtube_status():
+    """Check if user has connected YouTube Analytics."""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"connected": False})
+
+    tokens = user.get("youtubeAnalyticsTokens")
+    if not tokens or not tokens.get("access_token"):
+        return jsonify({"connected": False})
+
+    return jsonify({"connected": True})
+
+
+def refresh_youtube_token(user_id):
+    """Refresh YouTube Analytics access token if expired."""
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return None
+
+    tokens = user.get("youtubeAnalyticsTokens")
+    if not tokens:
+        return None
+
+    # Check if token is expired
+    expires_at = tokens.get("expires_at")
+    if expires_at and datetime.datetime.utcnow() < expires_at:
+        return tokens["access_token"]
+
+    # Refresh token
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        return None
+
+    token_url = "https://oauth2.googleapis.com/token"
+    refresh_data = {
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_secret": config.GOOGLE_CLIENT_SECRET,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token"
+    }
+
+    try:
+        response = requests.post(token_url, data=refresh_data)
+        new_tokens = response.json()
+
+        if "error" in new_tokens:
+            return None
+
+        # Update stored tokens
+        users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "youtubeAnalyticsTokens.access_token": new_tokens["access_token"],
+                    "youtubeAnalyticsTokens.expires_at": datetime.datetime.utcnow() + datetime.timedelta(seconds=new_tokens.get("expires_in", 3600))
+                }
+            }
+        )
+
+        return new_tokens["access_token"]
+
+    except Exception:
+        return None
+
+
+@app.route("/analytics/range", methods=["GET"])
+@token_required
+def get_analytics_range():
+    """
+    Fetch YouTube Analytics data for a custom date range.
+    Query params: startDate, endDate (YYYY-MM-DD format)
+    """
+    start_date = request.args.get("startDate")
+    end_date = request.args.get("endDate")
+
+    if not start_date or not end_date:
+        return jsonify({"error": "startDate and endDate are required"}), 400
+
+    # Validate date format
+    try:
+        datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+
+    # Get user's YouTube channel ID
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    channel_id = user.get("youtubeChannelId")
+    if not channel_id:
+        return jsonify({"error": "No YouTube channel configured"}), 400
+
+    # Get access token (refresh if needed)
+    access_token = refresh_youtube_token(request.user_id)
+    if not access_token:
+        return jsonify({"error": "YouTube Analytics not connected. Please connect first."}), 401
+
+    # Query YouTube Analytics API
+    analytics_url = "https://youtubeanalytics.googleapis.com/v2/reports"
+    params = {
+        "ids": f"channel=={channel_id}",
+        "startDate": start_date,
+        "endDate": end_date,
+        "metrics": "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+        "dimensions": "day",
+        "sort": "day"
+    }
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    try:
+        response = requests.get(analytics_url, params=params, headers=headers)
+        data = response.json()
+
+        if "error" in data:
+            error_msg = data["error"].get("message", "Unknown error")
+            return jsonify({"error": f"YouTube API error: {error_msg}"}), 400
+
+        # Transform to our format
+        columns = ["day", "views", "watchTimeMinutes", "subscribersGained"]
+        rows = []
+
+        for row in data.get("rows", []):
+            # row: [date, views, watchTime, subsGained, subsLost]
+            day = row[0]
+            views = row[1] if len(row) > 1 else 0
+            watch_time = row[2] if len(row) > 2 else 0
+            subs_gained = row[3] if len(row) > 3 else 0
+            subs_lost = row[4] if len(row) > 4 else 0
+            net_subs = subs_gained - subs_lost
+
+            rows.append([day, views, watch_time, net_subs])
+
+        return jsonify({
+            "columns": columns,
+            "rows": rows,
+            "source": "youtube_analytics_api"
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch analytics: {str(e)}"}), 500
 
 
 @app.route("/tts", methods=["POST"])

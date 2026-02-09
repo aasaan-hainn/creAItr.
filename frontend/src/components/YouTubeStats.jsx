@@ -34,11 +34,24 @@ const YouTubeStats = ({ token }) => {
     const [channelStats, setChannelStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
-    // Time Range State
+
+    // Date Range State (custom date picker)
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [isLoadingRange, setIsLoadingRange] = useState(false);
+
+    // YouTube Analytics OAuth Status
+    const [analyticsConnected, setAnalyticsConnected] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
+
+    // Legacy time range state (fallback to local DB data)
     const [timeRange, setTimeRange] = useState('30d');
     const [fullData, setFullData] = useState(null);
-    
+
     // Channel ID input state
     const [channelInput, setChannelInput] = useState('');
     const [isSavingChannel, setIsSavingChannel] = useState(false);
@@ -48,12 +61,24 @@ const YouTubeStats = ({ token }) => {
         fetchData();
     }, [token]);
 
-    // Re-filter data when time range changes
+    // Re-filter data when time range changes or new live stats arrive
     useEffect(() => {
         if (fullData) {
-            setAnalyticsData(transformData(fullData, timeRange));
+            setAnalyticsData(transformData(fullData, timeRange, channelStats));
         }
-    }, [fullData, timeRange]);
+    }, [fullData, timeRange, channelStats]);
+
+    // Listen for OAuth popup success message
+    useEffect(() => {
+        const handleMessage = (event) => {
+            if (event.data === 'youtube-analytics-connected') {
+                setAnalyticsConnected(true);
+                setIsConnecting(false);
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
 
     const fetchData = async () => {
         setLoading(true);
@@ -61,17 +86,80 @@ const YouTubeStats = ({ token }) => {
         try {
             // 1. Fetch Basic Channel Stats
             await fetchChannelStats();
-            
-            // 2. Fetch Analytics Data
+
+            // 2. Check YouTube Analytics connection status
+            await checkAnalyticsStatus();
+
+            // 3. Fetch Analytics Data (local DB fallback)
             await fetchAnalytics();
         } catch (err) {
             console.error('Error loading data:', err);
-            // Don't set main error if just analytics fails, but do if everything fails
             if (!channelStats && !analyticsData) {
                 setError(err.message);
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const checkAnalyticsStatus = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/youtube/status`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAnalyticsConnected(data.connected);
+            }
+        } catch (err) {
+            console.error('Error checking analytics status:', err);
+        }
+    };
+
+    const connectYouTubeAnalytics = async () => {
+        setIsConnecting(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/youtube/connect`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Open OAuth popup
+                window.open(data.authUrl, 'youtube-oauth', 'width=600,height=700');
+            }
+        } catch (err) {
+            console.error('Error starting OAuth:', err);
+            setIsConnecting(false);
+        }
+    };
+
+    const fetchAnalyticsRange = async () => {
+        if (!analyticsConnected) {
+            setError('Please connect YouTube Analytics first');
+            return;
+        }
+
+        setIsLoadingRange(true);
+        setError('');
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/analytics/range?startDate=${startDate}&endDate=${endDate}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to fetch analytics');
+            }
+
+            const data = await response.json();
+            setFullData(data);
+            setAnalyticsData(transformData(data, 'all', channelStats));
+        } catch (err) {
+            console.error('Error fetching range analytics:', err);
+            setError(err.message);
+        } finally {
+            setIsLoadingRange(false);
         }
     };
 
@@ -128,10 +216,10 @@ const YouTubeStats = ({ token }) => {
 
     const saveChannelId = async () => {
         if (!channelInput.trim()) return;
-        
+
         setIsSavingChannel(true);
         setChannelError('');
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/stats/youtube/channel`, {
                 method: 'POST',
@@ -160,7 +248,7 @@ const YouTubeStats = ({ token }) => {
         }
     };
 
-    const transformData = (data, range) => {
+    const transformData = (data, range, liveStats) => {
         if (!data || !data.rows || !data.columns) return null;
 
         let filteredRows = data.rows;
@@ -168,27 +256,46 @@ const YouTubeStats = ({ token }) => {
         // Apply Time Filter
         if (range !== 'all') {
             const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
-            
-            // Normalize today to start of day (00:00:00) to ensure consistent comparison
-            const cutoff = new Date();
-            cutoff.setHours(0, 0, 0, 0);
-            cutoff.setDate(cutoff.getDate() - days);
-            
+
+            // Calculate cutoff date as YYYY-MM-DD string for consistent comparison
+            // This avoids timezone issues when comparing dates
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - days);
+            const cutoffStr = cutoffDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
+
             filteredRows = data.rows.filter(row => {
-                // Backend sends YYYY-MM-DD. 
-                // new Date("YYYY-MM-DD") creates a date at midnight UTC.
-                const rowDate = new Date(row[0]);
-                return rowDate >= cutoff;
+                // Backend sends YYYY-MM-DD format in row[0]
+                // Compare strings directly to avoid timezone conversion issues
+                const rowDateStr = row[0];
+                return rowDateStr >= cutoffStr;
             });
         }
 
-        // data.rows is strictly [["2024-01-01", 120, 340, 2], ...]
-        // data.columns is ["day", "views", "watchTimeMinutes", "subscribersGained"]
-        
-        const labels = filteredRows.map(row => row[0]); // Day
-        const views = filteredRows.map(row => row[1]); // Views
-        const watchTime = filteredRows.map(row => row[2]); // Watch Time
-        const subscribers = filteredRows.map(row => row[3]); // Subscribers
+        // Clone rows to avoid mutating original state
+        let finalRows = filteredRows.map(row => [...row]);
+
+        // Inject Live Data (channelStats) as the latest data point
+        if (liveStats && liveStats.views !== undefined) {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            const lastRow = finalRows.length > 0 ? finalRows[finalRows.length - 1] : null;
+
+            if (lastRow && lastRow[0] === todayStr) {
+                // Update existing today's row with live stats
+                lastRow[1] = liveStats.views;
+                lastRow[3] = liveStats.subscribers;
+            } else {
+                // Append new row for today
+                // [date, views, watchTime, subscribers]
+                finalRows.push([todayStr, liveStats.views, 0, liveStats.subscribers]);
+            }
+        }
+
+        const labels = finalRows.map(row => row[0]); // Day
+        const views = finalRows.map(row => row[1]); // Views
+        const watchTime = finalRows.map(row => row[2]); // Watch Time
+        const subscribers = finalRows.map(row => row[3]); // Subscribers
 
         return {
             labels,
@@ -210,7 +317,7 @@ const YouTubeStats = ({ token }) => {
                     fill: true
                 },
                 subscribers: {
-                    label: 'Subscribers Gained',
+                    label: 'Net Subscribers',
                     data: subscribers,
                     backgroundColor: 'rgba(239, 68, 68, 0.8)', // Red
                 }
@@ -259,21 +366,63 @@ const YouTubeStats = ({ token }) => {
         maintainAspectRatio: false,
     };
 
-    const TimeRangeSelector = () => (
-        <div className="flex bg-white/5 border border-white/10 rounded-lg p-1 gap-1">
-            {['7d', '30d', '90d', 'all'].map((range) => (
+    const DateRangeSelector = () => (
+        <div className="flex flex-wrap items-center gap-3">
+            {/* Date Inputs */}
+            <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-400">From:</label>
+                <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+            </div>
+            <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-400">To:</label>
+                <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+            </div>
+
+            {/* Fetch Button */}
+            <button
+                onClick={fetchAnalyticsRange}
+                disabled={isLoadingRange || !analyticsConnected}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+            >
+                {isLoadingRange ? (
+                    <IconLoader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                    'Fetch Data'
+                )}
+            </button>
+
+            {/* Connect Analytics Button */}
+            {!analyticsConnected ? (
                 <button
-                    key={range}
-                    onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        timeRange === range 
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
-                            : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
+                    onClick={connectYouTubeAnalytics}
+                    disabled={isConnecting}
+                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
                 >
-                    {range === 'all' ? 'All Time' : `Last ${range.replace('d', ' Days')}`}
+                    {isConnecting ? (
+                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <>
+                            <IconBrandYoutube className="w-4 h-4" />
+                            Connect Analytics
+                        </>
+                    )}
                 </button>
-            ))}
+            ) : (
+                <div className="flex items-center gap-1 text-green-400 text-xs">
+                    <IconCheck className="w-4 h-4" />
+                    Analytics Connected
+                </div>
+            )}
         </div>
     );
 
@@ -328,9 +477,9 @@ const YouTubeStats = ({ token }) => {
                         {/* Profile Card */}
                         <div className="md:col-span-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center text-center">
                             {channelStats.thumbnail && (
-                                <img 
-                                    src={channelStats.thumbnail} 
-                                    alt={channelStats.title} 
+                                <img
+                                    src={channelStats.thumbnail}
+                                    alt={channelStats.title}
                                     className="w-20 h-20 rounded-full mb-3 border-2 border-red-500"
                                 />
                             )}
@@ -379,20 +528,20 @@ const YouTubeStats = ({ token }) => {
                 {/* Filter & Charts Section */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <IconCalendar className="w-5 h-5 text-indigo-400" />
                             Growth Analytics
-                         </h3>
-                         <TimeRangeSelector />
+                        </h3>
+                        <DateRangeSelector />
                     </div>
 
                     {analyticsData ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Views Chart */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px]">
-                                <h3 className="text-lg font-semibold text-white mb-4">Views Overview</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Daily Views</h3>
                                 <div className="h-[280px]">
-                                    <Line 
+                                    <Line
                                         data={{
                                             labels: analyticsData.labels,
                                             datasets: [analyticsData.datasets.views]
@@ -404,9 +553,9 @@ const YouTubeStats = ({ token }) => {
 
                             {/* Watch Time Chart */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px]">
-                                <h3 className="text-lg font-semibold text-white mb-4">Watch Time</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Watch Time (Minutes)</h3>
                                 <div className="h-[280px]">
-                                    <Line 
+                                    <Line
                                         data={{
                                             labels: analyticsData.labels,
                                             datasets: [analyticsData.datasets.watchTime]
@@ -418,9 +567,9 @@ const YouTubeStats = ({ token }) => {
 
                             {/* Subscribers Chart */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px] lg:col-span-2">
-                                <h3 className="text-lg font-semibold text-white mb-4">Daily Subscriber Growth</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Net Subscribers Gained</h3>
                                 <div className="h-[280px]">
-                                    <Bar 
+                                    <Bar
                                         data={{
                                             labels: analyticsData.labels,
                                             datasets: [analyticsData.datasets.subscribers]
@@ -449,7 +598,7 @@ const YouTubeStats = ({ token }) => {
                         onClick={fetchData}
                         className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 text-sm transition-colors flex items-center gap-2"
                     >
-                         Refresh Data
+                        Refresh Data
                     </button>
                 </div>
             </div>

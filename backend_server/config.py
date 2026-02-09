@@ -37,3 +37,10 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+# YouTube Analytics OAuth
+YOUTUBE_ANALYTICS_REDIRECT_URI = os.getenv(
+    "YOUTUBE_ANALYTICS_REDIRECT_URI", 
+    "http://localhost:5000/auth/youtube/callback"
+)
