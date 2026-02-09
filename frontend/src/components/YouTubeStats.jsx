@@ -74,11 +74,12 @@ const YouTubeStats = ({ token }) => {
             if (event.data === 'youtube-analytics-connected') {
                 setAnalyticsConnected(true);
                 setIsConnecting(false);
+                fetchData();
             }
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [token]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -88,10 +89,12 @@ const YouTubeStats = ({ token }) => {
             await fetchChannelStats();
 
             // 2. Check YouTube Analytics connection status
-            await checkAnalyticsStatus();
+            const connected = await checkAnalyticsStatus();
 
-            // 3. Fetch Analytics Data (local DB fallback)
-            await fetchAnalytics();
+            // 3. Fetch Analytics Data only if connected
+            if (connected) {
+                await fetchAnalyticsRange();
+            }
         } catch (err) {
             console.error('Error loading data:', err);
             if (!channelStats && !analyticsData) {
@@ -110,10 +113,12 @@ const YouTubeStats = ({ token }) => {
             if (response.ok) {
                 const data = await response.json();
                 setAnalyticsConnected(data.connected);
+                return data.connected;
             }
         } catch (err) {
             console.error('Error checking analytics status:', err);
         }
+        return false;
     };
 
     const connectYouTubeAnalytics = async () => {
@@ -187,33 +192,6 @@ const YouTubeStats = ({ token }) => {
         }
     };
 
-    const fetchAnalytics = async () => {
-        try {
-            const response = await fetch(`${API_BASE_URL}/analytics`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    throw new Error('Unauthorized. Please log in again.');
-                }
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || 'Failed to fetch analytics');
-            }
-
-            const data = await response.json();
-            setFullData(data); // Store raw data
-            // Initial transform handled by useEffect
-        } catch (err) {
-            console.error('Error loading analytics:', err);
-            // Allow partial loading (stats might work even if analytics fail)
-            throw err;
-        }
-    };
-
     const saveChannelId = async () => {
         if (!channelInput.trim()) return;
 
@@ -239,8 +217,10 @@ const YouTubeStats = ({ token }) => {
 
             setChannelStats(data.stats);
             setChannelInput('');
-            // Refresh analytics too
-            fetchAnalytics();
+            // Refresh analytics too if connected
+            if (analyticsConnected) {
+                fetchAnalyticsRange();
+            }
         } catch (err) {
             setChannelError('Failed to connect channel');
         } finally {
@@ -541,7 +521,15 @@ const YouTubeStats = ({ token }) => {
                         <DateRangeSelector />
                     </div>
 
-                    {analyticsData ? (
+                    {!analyticsConnected ? (
+                        <div className="flex flex-col items-center justify-center p-12 border border-white/10 rounded-xl bg-white/5 text-slate-400 text-center">
+                            <IconBrandYoutube className="w-12 h-12 mb-4 text-red-500/50" />
+                            <h4 className="text-lg font-medium text-white mb-2">Connect Analytics to See Growth</h4>
+                            <p className="max-w-md text-sm">
+                                To view detailed daily views, watch time, and subscriber growth, you need to grant permission to access your YouTube Analytics data.
+                            </p>
+                        </div>
+                    ) : analyticsData ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Views Chart */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px]">
@@ -597,15 +585,6 @@ const YouTubeStats = ({ token }) => {
                             )}
                         </div>
                     )}
-                </div>
-
-                <div className="flex justify-end">
-                    <button
-                        onClick={fetchData}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 text-sm transition-colors flex items-center gap-2"
-                    >
-                        Refresh Data
-                    </button>
                 </div>
             </div>
         </div>
