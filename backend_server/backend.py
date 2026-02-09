@@ -252,6 +252,47 @@ def get_current_user():
             "email": user["email"],
             "socialAccounts": user.get("socialAccounts", []),
             "createdAt": user.get("createdAt", ""),
+            "fullName": user.get("name", ""),
+            "picture": user.get("picture", ""),
+            "provider": "google" if user.get("googleId") else "email",
+        }
+    )
+
+
+@app.route("/auth/profile", methods=["PUT"])
+@token_required
+def update_profile():
+    """Update user profile (fullName)"""
+    data = request.json
+    full_name = data.get("fullName", "").strip()
+
+    if not full_name:
+        return jsonify({"error": "Full name is required"}), 400
+
+    if len(full_name) > 100:
+        return jsonify({"error": "Full name must be less than 100 characters"}), 400
+
+    # Update user in database
+    result = users_collection.update_one(
+        {"_id": ObjectId(request.user_id)},
+        {"$set": {"name": full_name}}
+    )
+
+    if result.modified_count == 0 and result.matched_count == 0:
+        return jsonify({"error": "User not found"}), 404
+
+    # Return updated user data
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    return jsonify(
+        {
+            "message": "Profile updated successfully",
+            "user": {
+                "id": str(user["_id"]),
+                "email": user["email"],
+                "fullName": user.get("name", ""),
+                "picture": user.get("picture", ""),
+                "provider": "google" if user.get("googleId") else "email",
+            }
         }
     )
 

@@ -145,6 +145,13 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const updateUser = (updatedData) => {
+        setUser(prev => ({
+            ...prev,
+            ...updatedData
+        }));
+    };
+
     const value = {
         user,
         token,
@@ -153,7 +160,8 @@ export const AuthProvider = ({ children }) => {
         login,
         googleLogin,
         register,
-        logout
+        logout,
+        updateUser
     };
 
     return (
