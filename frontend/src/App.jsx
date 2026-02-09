@@ -6,6 +6,7 @@ import LandingPage from "./pages/LandingPage";
 import MyProjects from "./pages/MyProjects";
 import Auth from "./pages/Auth";
 import Support from "./pages/Support";
+import Settings from "./pages/Settings";
 import PageTransition from "./components/PageTransition";
 import Hyperspeed, { hyperspeedPresets } from "./components/Hyperspeed";
 
@@ -73,6 +74,14 @@ const AnimatedRoutes = () => {
           element={
             <PageTransition>
               <Support />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <PageTransition>
+              <Settings />
             </PageTransition>
           }
         />

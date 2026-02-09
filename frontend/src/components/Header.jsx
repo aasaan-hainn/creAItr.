@@ -12,7 +12,7 @@ const Header = () => {
         { label: "Home", href: "/" },
         { label: "My-Projects", href: "/my-projects" },
         { label: "Support", href: "/support" },
-        { label: "Settings", href: "#" },
+        { label: "Settings", href: "/settings" },
     ];
 
     const location = useLocation();
@@ -22,6 +22,7 @@ const Header = () => {
         if (path === '/') return 0;
         if (path.startsWith('/my-projects')) return 1;
         if (path.startsWith('/support')) return 2;
+        if (path.startsWith('/settings')) return 3;
         return 0;
     };
 
