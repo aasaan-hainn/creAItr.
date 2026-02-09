@@ -229,10 +229,10 @@ export default function VideoEditor({ projectId, token }) {
     };
 
     return (
-        <div ref={containerRef} className={`flex flex-col h-full bg-black/20 backdrop-blur-sm rounded-xl border border-white/10 ${isFullscreen ? 'rounded-none' : ''}`}>
+        <div ref={containerRef} className={`flex flex-col h-full bg-black/40 backdrop-blur-xl rounded-xl border border-white/10 overflow-hidden ${isFullscreen ? 'rounded-none' : ''}`}>
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-white/10">
-                <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap items-center justify-between p-3 border-b border-white/10 gap-3 bg-black/20 shrink-0">
+                <div className="flex flex-wrap gap-2 items-center">
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
@@ -248,68 +248,70 @@ export default function VideoEditor({ projectId, token }) {
                         onChange={handleFileUpload}
                         className="hidden"
                     />
-                    <span className="text-xs text-slate-500">Max 100MB</span>
+                    <span className="text-[10px] text-slate-500 hidden sm:inline">Max 100MB</span>
 
                     {video && (
-                        <>
+                        <div className="flex gap-2">
                             <button
                                 onClick={() => setIsAISidebarOpen(true)}
                                 className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
                             >
                                 <Wand2 size={18} />
-                                <span className="text-sm">Ask AI</span>
+                                <span className="text-sm hidden sm:inline">Ask AI</span>
                             </button>
                             <button
                                 onClick={() => setShowTextInput(!showTextInput)}
                                 className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                             >
                                 <Type size={18} />
-                                <span className="text-sm">Add Text</span>
+                                <span className="text-sm hidden sm:inline">Add Text</span>
                             </button>
                             <button
                                 onClick={exportVideo}
                                 className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                             >
                                 <Download size={18} />
-                                <span className="text-sm">Export</span>
+                                <span className="text-sm hidden sm:inline">Export</span>
                             </button>
-                        </>
+                        </div>
                     )}
                 </div>
 
                 {video && (
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400">Speed:</span>
-                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (
-                            <button
-                                key={speed}
-                                onClick={() => setPlaybackSpeed(speed)}
-                                className={`px-2 py-1 rounded text-xs transition-colors ${playbackSpeed === speed
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-white/5 text-slate-400 hover:bg-white/10"
-                                    }`}
-                            >
-                                {speed}x
-                            </button>
-                        ))}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider">Speed:</span>
+                        <div className="flex bg-white/5 rounded-lg p-1">
+                            {[0.5, 1, 1.5, 2].map(speed => (
+                                <button
+                                    key={speed}
+                                    onClick={() => setPlaybackSpeed(speed)}
+                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${playbackSpeed === speed
+                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                                        }`}
+                                >
+                                    {speed}x
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
 
             {/* Text Input Modal */}
             {showTextInput && (
-                <div className="p-4 border-b border-white/10 bg-white/5">
-                    <div className="flex gap-2">
+                <div className="p-4 border-b border-white/10 bg-indigo-500/5 shrink-0">
+                    <div className="flex gap-2 max-w-2xl mx-auto">
                         <input
                             type="text"
                             value={newText}
                             onChange={(e) => setNewText(e.target.value)}
                             placeholder="Enter text to overlay..."
-                            className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none"
+                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500/50"
                         />
                         <button
                             onClick={addTextOverlay}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm transition-colors"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium transition-colors"
                         >
                             Add at {formatTime(currentTime)}
                         </button>
@@ -317,131 +319,179 @@ export default function VideoEditor({ projectId, token }) {
                 </div>
             )}
 
-            {/* Video Area */}
-            <div className="flex-1 flex gap-4 p-4 overflow-hidden">
-                {/* Main Video Section */}
-                <div className="flex-1 flex flex-col gap-4">
-                    {video ? (
-                        <>
-                            {/* Video Player */}
-                            <div className="relative flex-1 flex items-center justify-center bg-black/50 rounded-lg">
-                                <video
-                                    ref={videoRef}
-                                    src={video}
-                                    onTimeUpdate={handleTimeUpdate}
-                                    onLoadedMetadata={handleLoadedMetadata}
-                                    className="max-w-full max-h-full rounded-lg"
-                                    crossOrigin="anonymous"
-                                />
-                                {getCurrentOverlayText() && (
-                                    <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-black/80 px-4 py-2 rounded-lg">
-                                        <p className="text-white text-lg font-semibold">{getCurrentOverlayText()}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Controls */}
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={togglePlayPause}
-                                        className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
-                                    >
-                                        {playing ? <Pause size={20} /> : <Play size={20} />}
-                                    </button>
-                                    <span className="text-sm text-slate-400 min-w-20">
-                                        {formatTime(currentTime)} / {formatTime(duration)}
-                                    </span>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max={duration || 0}
-                                        step="0.1"
-                                        value={currentTime}
-                                        onChange={handleSeek}
-                                        className="flex-1"
+            {/* Scrollable Editor Area */}
+            <div className="flex-1 overflow-y-auto min-h-0 bg-black/20">
+                <div className="p-4 flex flex-col lg:flex-row gap-6 min-h-full">
+                    {/* Main Video Section */}
+                    <div className="flex-1 flex flex-col gap-6">
+                        {video ? (
+                            <>
+                                {/* Video Player Container */}
+                                <div className="relative group aspect-video bg-black rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
+                                    <video
+                                        ref={videoRef}
+                                        src={video}
+                                        onTimeUpdate={handleTimeUpdate}
+                                        onLoadedMetadata={handleLoadedMetadata}
+                                        className="w-full h-full"
+                                        crossOrigin="anonymous"
                                     />
+                                    {getCurrentOverlayText() && (
+                                        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 shadow-2xl">
+                                            <p className="text-white text-xl font-bold tracking-tight">{getCurrentOverlayText()}</p>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Playback Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 pointer-events-none">
+                                        {!playing && <Play size={64} className="text-white/50" />}
+                                    </div>
+
+                                    {/* Fullscreen Toggle - Positioned within player for better UX */}
+                                    <button
+                                        onClick={toggleFullscreen}
+                                        className="absolute top-4 right-4 p-2 bg-black/60 backdrop-blur-md rounded-xl text-white/70 border border-white/10 hover:bg-indigo-600 hover:text-white transition-all shadow-xl"
+                                    >
+                                        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                                    </button>
                                 </div>
 
-                                {/* Trim Controls */}
-                                <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Scissors size={16} className="text-slate-400" />
-                                        <span className="text-sm font-medium text-slate-300">Trim Video</span>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
-                                            <label className="text-xs text-slate-400 block mb-1">Start: {formatTime(trimStart)}</label>
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max={duration || 0}
-                                                step="0.1"
-                                                value={trimStart}
-                                                onChange={(e) => setTrimStart(parseFloat(e.target.value))}
-                                                className="w-full"
-                                            />
+                                {/* Controls Card */}
+                                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6 shadow-xl backdrop-blur-sm">
+                                    {/* Main Playback & Seek */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                onClick={togglePlayPause}
+                                                className="w-12 h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+                                            >
+                                                {playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+                                            </button>
+                                            <div className="flex-1 space-y-1">
+                                                <div className="flex justify-between text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                                                    <span>Current: {formatTime(currentTime)}</span>
+                                                    <span>Total: {formatTime(duration)}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max={duration || 0}
+                                                    step="0.01"
+                                                    value={currentTime}
+                                                    onChange={handleSeek}
+                                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <label className="text-xs text-slate-400 block mb-1">End: {formatTime(trimEnd)}</label>
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max={duration || 0}
-                                                step="0.1"
-                                                value={trimEnd}
-                                                onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
-                                                className="w-full"
-                                            />
+                                    </div>
+
+                                    {/* Trim Section */}
+                                    <div className="pt-6 border-t border-white/10">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 bg-red-500/20 rounded-lg">
+                                                    <Scissors size={16} className="text-red-400" />
+                                                </div>
+                                                <h3 className="text-sm font-bold text-white tracking-tight">Trim Range</h3>
+                                            </div>
+                                            <span className="text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-1 rounded border border-white/5">
+                                                {formatTime(trimEnd - trimStart)} selected
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-xs font-medium text-slate-400">Start Point</label>
+                                                    <span className="text-xs font-mono text-indigo-400">{formatTime(trimStart)}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max={trimEnd}
+                                                    step="0.1"
+                                                    value={trimStart}
+                                                    onChange={(e) => setTrimStart(parseFloat(e.target.value))}
+                                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-xs font-medium text-slate-400">End Point</label>
+                                                    <span className="text-xs font-mono text-red-400">{formatTime(trimEnd)}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={trimStart}
+                                                    max={duration || 0}
+                                                    step="0.1"
+                                                    value={trimEnd}
+                                                    onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
+                                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-red-500"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 min-h-[400px] flex items-center justify-center text-center border-2 border-dashed border-white/10 rounded-3xl bg-white/[0.02]">
+                                <div className="max-w-xs">
+                                    <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Upload size={32} className="text-indigo-400" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-2">Ready to edit?</h3>
+                                    <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                                        Upload a video from your computer or select one from your project library to begin.
+                                    </p>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-xl shadow-indigo-500/20 active:scale-95"
+                                    >
+                                        Choose Video File
+                                    </button>
+                                </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 flex items-center justify-center text-center text-slate-500">
-                            <div>
-                                <Upload size={48} className="mx-auto mb-2 opacity-50" />
-                                <p>Upload a video to get started</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
 
-                {/* Project Videos Panel */}
-                <div className="w-48 p-3 bg-white/5 rounded-lg border border-white/10 overflow-y-auto">
-                    <h3 className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-                        <Video size={14} />
-                        Project Videos
-                    </h3>
-                    {loadingMedia ? (
-                        <div className="text-xs text-slate-500">Loading...</div>
-                    ) : projectVideos.length === 0 ? (
-                        <div className="text-xs text-slate-500">No videos uploaded yet</div>
-                    ) : (
-                        <div className="space-y-2">
-                            {projectVideos.map((vid, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => loadFromProject(vid.url)}
-                                    className="w-full p-2 text-left rounded-lg border border-white/10 hover:border-indigo-500 transition-colors"
-                                >
-                                    <div className="text-xs text-slate-300 truncate">{vid.name}</div>
-                                    <div className="text-[10px] text-slate-500 truncate">{new Date(vid.uploadedAt).toLocaleDateString()}</div>
-                                </button>
-                            ))}
+                    {/* Project Videos Panel */}
+                    <div className="w-full lg:w-72 shrink-0">
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sticky top-0 shadow-xl backdrop-blur-sm">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Video size={14} className="text-indigo-400" />
+                                Project Assets
+                            </h3>
+                            
+                            {loadingMedia ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader size={24} className="animate-spin text-slate-600" />
+                                </div>
+                            ) : projectVideos.length === 0 ? (
+                                <div className="text-center py-12 px-4 border border-white/5 rounded-xl bg-black/20">
+                                    <p className="text-xs text-slate-500">No media assets found in this project.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {projectVideos.map((vid, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => loadFromProject(vid.url)}
+                                            className={`w-full group p-3 text-left rounded-xl border transition-all ${
+                                                video === vid.url 
+                                                ? "bg-indigo-500/10 border-indigo-500/50" 
+                                                : "bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/10"
+                                            }`}
+                                        >
+                                            <div className="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">{vid.name}</div>
+                                            <div className="text-[10px] text-slate-500 font-mono mt-1">{new Date(vid.uploadedAt).toLocaleDateString()}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
-
-                {/* Fullscreen Toggle */}
-                <button
-                    onClick={toggleFullscreen}
-                    className="flex items-center justify-center w-8 h-8 bg-black/40 backdrop-blur-md rounded-full text-white/70 border border-white/5 hover:bg-white/10 hover:text-white transition-all duration-200"
-                    title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                >
-                    {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                </button>
             </div>
 
             {/* AI Sidebar */}
