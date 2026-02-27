@@ -12,7 +12,7 @@ import {
     Filler
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { IconBrandYoutube, IconLoader2, IconAlertCircle, IconUsers, IconEye, IconVideo, IconCheck, IconX, IconCalendar } from '@tabler/icons-react';
+import { IconBrandYoutube, IconLoader2, IconAlertCircle, IconUsers, IconEye, IconVideo, IconCheck, IconCalendar, IconSparkles } from '@tabler/icons-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -47,9 +47,11 @@ const YouTubeStats = ({ token }) => {
     // YouTube Analytics OAuth Status
     const [analyticsConnected, setAnalyticsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
+    const [aiSummary, setAiSummary] = useState(null);
+    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+    const [summaryError, setSummaryError] = useState('');
 
-    // Legacy time range state (fallback to local DB data)
-    const [timeRange, setTimeRange] = useState('30d');
+    // Keep original range payload so we can merge fresh live channel stats
     const [fullData, setFullData] = useState(null);
 
     // Channel ID input state
@@ -61,12 +63,12 @@ const YouTubeStats = ({ token }) => {
         fetchData();
     }, [token]);
 
-    // Re-filter data when time range changes or new live stats arrive
+    // Rebuild chart data when live channel stats update
     useEffect(() => {
         if (fullData) {
-            setAnalyticsData(transformData(fullData, timeRange, channelStats));
+            setAnalyticsData(transformData(fullData, 'all', channelStats));
         }
-    }, [fullData, timeRange, channelStats]);
+    }, [fullData, channelStats]);
 
     // Listen for OAuth popup success message
     useEffect(() => {
@@ -93,7 +95,7 @@ const YouTubeStats = ({ token }) => {
 
             // 3. Fetch Analytics Data only if connected
             if (connected) {
-                await fetchAnalyticsRange();
+                await fetchAnalyticsRange(connected);
             }
         } catch (err) {
             console.error('Error loading data:', err);
@@ -138,8 +140,8 @@ const YouTubeStats = ({ token }) => {
         }
     };
 
-    const fetchAnalyticsRange = async () => {
-        if (!analyticsConnected) {
+    const fetchAnalyticsRange = async (isConnected = analyticsConnected) => {
+        if (!isConnected) {
             setError('Please connect YouTube Analytics first');
             return;
         }
@@ -160,11 +162,50 @@ const YouTubeStats = ({ token }) => {
             const data = await response.json();
             setFullData(data);
             setAnalyticsData(transformData(data, 'all', channelStats));
+            fetchAnalyticsSummary(startDate, endDate);
         } catch (err) {
             console.error('Error fetching range analytics:', err);
             setError(err.message);
+            setAiSummary(null);
+            setSummaryError('');
         } finally {
             setIsLoadingRange(false);
+        }
+    };
+
+    const fetchAnalyticsSummary = async (summaryStartDate, summaryEndDate) => {
+        setIsLoadingSummary(true);
+        setSummaryError('');
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/analytics/summary?startDate=${summaryStartDate}&endDate=${summaryEndDate}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to generate AI summary');
+            }
+
+            const summary = data.summary;
+            if (summary && typeof summary === 'object') {
+                setAiSummary(summary);
+            } else if (typeof summary === 'string' && summary.trim()) {
+                setAiSummary({
+                    performanceSnapshot: summary.trim(),
+                    trends: [],
+                    recommendations: [],
+                    growthWalkthrough: []
+                });
+            } else {
+                setAiSummary(null);
+            }
+        } catch (err) {
+            console.error('Error generating AI summary:', err);
+            setAiSummary(null);
+            setSummaryError(err.message || 'Failed to generate AI summary');
+        } finally {
+            setIsLoadingSummary(false);
         }
     };
 
@@ -221,7 +262,7 @@ const YouTubeStats = ({ token }) => {
             if (analyticsConnected) {
                 fetchAnalyticsRange();
             }
-        } catch (err) {
+        } catch {
             setChannelError('Failed to connect channel');
         } finally {
             setIsSavingChannel(false);
@@ -571,6 +612,75 @@ const YouTubeStats = ({ token }) => {
                                         options={commonOptions}
                                     />
                                 </div>
+                            </div>
+
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 lg:col-span-2">
+                                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                    <IconSparkles className="w-5 h-5 text-indigo-400" />
+                                    AI Summary
+                                </h3>
+                                {isLoadingSummary ? (
+                                    <div className="text-slate-300 text-sm flex items-center gap-2">
+                                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                                        Generating summary from YouTube Analytics data...
+                                    </div>
+                                ) : summaryError ? (
+                                    <p className="text-red-400 text-sm">{summaryError}</p>
+                                ) : aiSummary ? (
+                                    <div className="space-y-5 text-sm text-slate-200 leading-relaxed">
+                                        <div className="bg-black/30 border border-white/10 rounded-lg p-4">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Performance Snapshot</p>
+                                            <p className="whitespace-pre-wrap break-words">{aiSummary.performanceSnapshot}</p>
+                                        </div>
+
+                                        <div className="bg-black/30 border border-white/10 rounded-lg p-4">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Key Trends</p>
+                                            {Array.isArray(aiSummary.trends) && aiSummary.trends.length > 0 ? (
+                                                <ol className="space-y-2 list-decimal list-inside text-slate-200">
+                                                    {aiSummary.trends.map((trend, idx) => (
+                                                        <li key={`trend-${idx}`} className="whitespace-pre-wrap break-words">{trend}</li>
+                                                    ))}
+                                                </ol>
+                                            ) : (
+                                                <p className="text-slate-400">No trend insights for this range.</p>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-black/30 border border-white/10 rounded-lg p-4">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Recommended Actions</p>
+                                            {Array.isArray(aiSummary.recommendations) && aiSummary.recommendations.length > 0 ? (
+                                                <ol className="space-y-2 list-decimal list-inside text-slate-200">
+                                                    {aiSummary.recommendations.map((item, idx) => (
+                                                        <li key={`rec-${idx}`} className="whitespace-pre-wrap break-words">{item}</li>
+                                                    ))}
+                                                </ol>
+                                            ) : (
+                                                <p className="text-slate-400">No recommendations available.</p>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-black/30 border border-white/10 rounded-lg p-4">
+                                            <p className="text-xs uppercase tracking-wide text-slate-400 mb-3">Growth Walkthrough</p>
+                                            {Array.isArray(aiSummary.growthWalkthrough) && aiSummary.growthWalkthrough.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {aiSummary.growthWalkthrough.map((step, idx) => (
+                                                        <div key={`step-${idx}`} className="rounded-md border border-white/10 p-3 bg-white/[0.02]">
+                                                            <p className="font-medium text-white whitespace-pre-wrap break-words">{idx + 1}. {step.step || 'Growth Step'}</p>
+                                                            <p className="text-slate-300 mt-1 whitespace-pre-wrap break-words"><span className="text-slate-400">Action:</span> {step.action || '-'}</p>
+                                                            <p className="text-slate-300 mt-1 whitespace-pre-wrap break-words"><span className="text-slate-400">Why:</span> {step.why || '-'}</p>
+                                                            <p className="text-slate-300 mt-1 whitespace-pre-wrap break-words"><span className="text-slate-400">Target:</span> {step.metricTarget || '-'}</p>
+                                                            <p className="text-slate-300 mt-1 whitespace-pre-wrap break-words"><span className="text-slate-400">Timeframe:</span> {step.timeframe || '-'}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-slate-400">No walkthrough generated for this range.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-400 text-sm">No summary available for the selected range.</p>
+                                )}
                             </div>
                         </div>
                     ) : (

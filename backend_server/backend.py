@@ -3,6 +3,7 @@ import datetime
 import os
 import time
 import tempfile
+import re
 import requests
 from flask import Flask, request, Response, stream_with_context, send_file, jsonify
 from flask_cors import CORS
@@ -31,6 +32,8 @@ from youtube_stats import (
     calculate_growth,
     generate_growth_graph,
     get_stats_history,
+    fetch_youtube_analytics_range,
+    build_analytics_summary_context,
 )
 
 # --- SERVER SETUP ---
@@ -682,51 +685,259 @@ def get_analytics_range():
     if not access_token:
         return jsonify({"error": "YouTube Analytics not connected. Please connect first."}), 401
 
-    # Query YouTube Analytics API
-    analytics_url = "https://youtubeanalytics.googleapis.com/v2/reports"
-    params = {
-        "ids": f"channel=={channel_id}",
-        "startDate": start_date,
-        "endDate": end_date,
-        "metrics": "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
-        "dimensions": "day",
-        "sort": "day"
-    }
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-
     try:
-        response = requests.get(analytics_url, params=params, headers=headers)
-        data = response.json()
-
-        if "error" in data:
-            error_msg = data["error"].get("message", "Unknown error")
-            return jsonify({"error": f"YouTube API error: {error_msg}"}), 400
-
-        # Transform to our format
-        columns = ["day", "views", "watchTimeMinutes", "subscribersGained"]
-        rows = []
-
-        for row in data.get("rows", []):
-            # row: [date, views, watchTime, subsGained, subsLost]
-            day = row[0]
-            views = row[1] if len(row) > 1 else 0
-            watch_time = row[2] if len(row) > 2 else 0
-            subs_gained = row[3] if len(row) > 3 else 0
-            subs_lost = row[4] if len(row) > 4 else 0
-            net_subs = subs_gained - subs_lost
-
-            rows.append([day, views, watch_time, net_subs])
+        analytics_payload = fetch_youtube_analytics_range(
+            channel_id=channel_id,
+            access_token=access_token,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         return jsonify({
-            "columns": columns,
-            "rows": rows,
+            "columns": analytics_payload["columns"],
+            "rows": analytics_payload["rows"],
             "source": "youtube_analytics_api"
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Failed to fetch analytics: {str(e)}"}), 500
+
+
+@app.route("/analytics/summary", methods=["GET"])
+@token_required
+def get_analytics_summary():
+    """
+    Generate AI summary for YouTube Analytics data for a date range.
+    Query params: startDate, endDate (YYYY-MM-DD format)
+    """
+    start_date = request.args.get("startDate")
+    end_date = request.args.get("endDate")
+
+    if not start_date or not end_date:
+        return jsonify({"error": "startDate and endDate are required"}), 400
+
+    try:
+        datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    channel_id = user.get("youtubeChannelId")
+    if not channel_id:
+        return jsonify({"error": "No YouTube channel configured"}), 400
+
+    access_token = refresh_youtube_token(request.user_id)
+    if not access_token:
+        return jsonify({"error": "YouTube Analytics not connected. Please connect first."}), 401
+
+    try:
+        analytics_payload = fetch_youtube_analytics_range(
+            channel_id=channel_id,
+            access_token=access_token,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if not analytics_payload.get("rawRows"):
+            return jsonify(
+                {
+                    "summary": {
+                        "performanceSnapshot": "No YouTube Analytics data available for this date range.",
+                        "trends": [],
+                        "recommendations": [],
+                        "growthWalkthrough": [],
+                    }
+                }
+            )
+
+        channel_stats = get_channel_stats(channel_id)
+        context_json = build_analytics_summary_context(analytics_payload, channel_stats)
+
+        system_prompt = """You are a YouTube growth strategist.
+Return ONLY valid JSON. No markdown. No extra text.
+
+Schema:
+{
+  "performanceSnapshot": "string",
+  "trends": ["string", "string", "string"],
+  "recommendations": ["string", "string", "string"],
+  "growthWalkthrough": [
+    {"step": "string", "action": "string", "why": "string", "metricTarget": "string", "timeframe": "string"},
+    {"step": "string", "action": "string", "why": "string", "metricTarget": "string", "timeframe": "string"},
+    {"step": "string", "action": "string", "why": "string", "metricTarget": "string", "timeframe": "string"},
+    {"step": "string", "action": "string", "why": "string", "metricTarget": "string", "timeframe": "string"},
+    {"step": "string", "action": "string", "why": "string", "metricTarget": "string", "timeframe": "string"}
+  ]
+}
+
+Rules:
+- Use only the provided JSON analytics data.
+- Be specific with numbers where available.
+- Keep each string concise and actionable.
+- Recommendations must be practical for YouTube growth."""
+
+        completion = nvidia_client.chat.completions.create(
+            model=config.MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analyze this YouTube analytics JSON:\n{context_json}"},
+            ],
+            temperature=0.15,
+            top_p=0.9,
+            max_tokens=700,
+            stream=False,
+        )
+
+        message = completion.choices[0].message
+        summary_text = message.content
+
+        if summary_text is None:
+            summary_text = getattr(message, "reasoning_content", None)
+
+        if not summary_text:
+            return jsonify({"error": "AI returned empty summary"}), 500
+
+        def _clean_text(value):
+            if not isinstance(value, str):
+                return ""
+            return value.strip()
+
+        def _extract_json_candidate(text: str) -> str:
+            # Try markdown code block first.
+            md_block = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
+            if md_block:
+                return md_block.group(1).strip()
+
+            # Then first JSON object in raw text.
+            raw_obj = re.search(r"(\{.*\})", text, flags=re.DOTALL)
+            if raw_obj:
+                return raw_obj.group(1).strip()
+            return text.strip()
+
+        def _fallback_summary():
+            totals = analytics_payload.get("totals", {})
+            return {
+                "performanceSnapshot": (
+                    f"From {start_date} to {end_date}, the channel generated "
+                    f"{totals.get('views', 0)} views, {totals.get('watchTimeMinutes', 0)} watch minutes, "
+                    f"and net {totals.get('netSubscribers', 0)} subscribers."
+                ),
+                "trends": [
+                    "Daily performance is uneven; focus on replicating high-performing upload days.",
+                    "Watch time and net subscribers should be tracked together to validate content quality.",
+                    "Consistency in uploads and stronger retention hooks can stabilize growth."
+                ],
+                "recommendations": [
+                    "Publish around your top-performing day/time and keep cadence consistent.",
+                    "Improve first 30 seconds for better retention and higher watch time.",
+                    "Use end screens and pinned CTAs to convert viewers into subscribers."
+                ],
+                "growthWalkthrough": [
+                    {
+                        "step": "Audit top videos",
+                        "action": "Identify the top 3 videos by views and watch time in this date range.",
+                        "why": "These videos reveal topics/formats already validated by your audience.",
+                        "metricTarget": "Document 3 repeatable content patterns.",
+                        "timeframe": "Day 1"
+                    },
+                    {
+                        "step": "Create 2 follow-up videos",
+                        "action": "Publish two videos that reuse winning topics, titles, and thumbnail style.",
+                        "why": "Doubling down on proven formats improves probability of repeat performance.",
+                        "metricTarget": "2 uploads this week with CTR and retention tracking.",
+                        "timeframe": "Days 2-4"
+                    },
+                    {
+                        "step": "Retention optimization",
+                        "action": "Rewrite intros to deliver value in first 15-30 seconds and remove slow openings.",
+                        "why": "Higher retention raises recommendations and total watch time.",
+                        "metricTarget": "Increase average watch time by 10-15%.",
+                        "timeframe": "Days 3-6"
+                    },
+                    {
+                        "step": "Subscriber conversion",
+                        "action": "Add one clear CTA in-video, one in description, and one in end screen.",
+                        "why": "Multiple conversion touchpoints increase net subscriber gains.",
+                        "metricTarget": "Improve net subscribers per 1,000 views.",
+                        "timeframe": "Days 5-7"
+                    },
+                    {
+                        "step": "Weekly review loop",
+                        "action": "Review results weekly and keep only strategies that improved metrics.",
+                        "why": "Fast iteration compounds growth and prevents wasted effort.",
+                        "metricTarget": "Week-over-week gains in views, watch time, and net subscribers.",
+                        "timeframe": "End of week"
+                    },
+                ],
+            }
+
+        parsed = None
+        try:
+            parsed = json.loads(_extract_json_candidate(summary_text))
+        except Exception:
+            parsed = None
+
+        if not isinstance(parsed, dict):
+            parsed = _fallback_summary()
+
+        final_summary = {
+            "performanceSnapshot": _clean_text(parsed.get("performanceSnapshot"))
+            or _fallback_summary()["performanceSnapshot"],
+            "trends": [
+                _clean_text(item)
+                for item in (parsed.get("trends") if isinstance(parsed.get("trends"), list) else [])
+                if _clean_text(item)
+            ][:4],
+            "recommendations": [
+                _clean_text(item)
+                for item in (
+                    parsed.get("recommendations")
+                    if isinstance(parsed.get("recommendations"), list)
+                    else []
+                )
+                if _clean_text(item)
+            ][:4],
+            "growthWalkthrough": [],
+        }
+
+        walkthrough = parsed.get("growthWalkthrough")
+        if isinstance(walkthrough, list):
+            for item in walkthrough[:6]:
+                if not isinstance(item, dict):
+                    continue
+                normalized = {
+                    "step": _clean_text(item.get("step")),
+                    "action": _clean_text(item.get("action")),
+                    "why": _clean_text(item.get("why")),
+                    "metricTarget": _clean_text(item.get("metricTarget")),
+                    "timeframe": _clean_text(item.get("timeframe")),
+                }
+                if normalized["step"] or normalized["action"]:
+                    final_summary["growthWalkthrough"].append(normalized)
+
+        if not final_summary["growthWalkthrough"]:
+            final_summary["growthWalkthrough"] = _fallback_summary()["growthWalkthrough"]
+        if not final_summary["trends"]:
+            final_summary["trends"] = _fallback_summary()["trends"]
+        if not final_summary["recommendations"]:
+            final_summary["recommendations"] = _fallback_summary()["recommendations"]
+
+        return jsonify(
+            {
+                "summary": final_summary,
+                "totals": analytics_payload.get("totals", {}),
+                "days": len(analytics_payload.get("rawRows", [])),
+            }
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate analytics summary: {str(e)}"}), 500
 
 
 @app.route("/tts", methods=["POST"])

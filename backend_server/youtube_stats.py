@@ -7,6 +7,8 @@ Handles YouTube Data API integration for fetching channel statistics,
 import io
 import base64
 import datetime
+import json
+import requests
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import matplotlib
@@ -245,3 +247,109 @@ def generate_growth_graph(user_id: str) -> str:
     # Encode to base64
     image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return f"data:image/png;base64,{image_base64}"
+
+
+def fetch_youtube_analytics_range(
+    channel_id: str,
+    access_token: str,
+    start_date: str,
+    end_date: str,
+) -> dict:
+    """
+    Fetch YouTube Analytics API data for a date range and normalize it.
+    Returns transformed rows for charts plus raw rows for AI analysis.
+    """
+    analytics_url = "https://youtubeanalytics.googleapis.com/v2/reports"
+    params = {
+        "ids": f"channel=={channel_id}",
+        "startDate": start_date,
+        "endDate": end_date,
+        "metrics": "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+        "dimensions": "day",
+        "sort": "day",
+    }
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = requests.get(analytics_url, params=params, headers=headers, timeout=30)
+    data = response.json()
+
+    if "error" in data:
+        error_msg = data["error"].get("message", "Unknown error")
+        raise ValueError(f"YouTube API error: {error_msg}")
+
+    columns = ["day", "views", "watchTimeMinutes", "subscribersGained"]
+    rows = []
+    full_rows = []
+
+    total_views = 0
+    total_watch_time = 0
+    total_subscribers_gained = 0
+    total_subscribers_lost = 0
+    total_net_subscribers = 0
+
+    for row in data.get("rows", []):
+        day = row[0]
+        views = int(row[1]) if len(row) > 1 else 0
+        watch_time = int(row[2]) if len(row) > 2 else 0
+        subs_gained = int(row[3]) if len(row) > 3 else 0
+        subs_lost = int(row[4]) if len(row) > 4 else 0
+        net_subs = subs_gained - subs_lost
+
+        rows.append([day, views, watch_time, net_subs])
+        full_rows.append([day, views, watch_time, subs_gained, subs_lost, net_subs])
+
+        total_views += views
+        total_watch_time += watch_time
+        total_subscribers_gained += subs_gained
+        total_subscribers_lost += subs_lost
+        total_net_subscribers += net_subs
+
+    return {
+        "columns": columns,
+        "rows": rows,
+        "rawColumns": [
+            "day",
+            "views",
+            "watchTimeMinutes",
+            "subscribersGained",
+            "subscribersLost",
+            "netSubscribers",
+        ],
+        "rawRows": full_rows,
+        "totals": {
+            "views": total_views,
+            "watchTimeMinutes": total_watch_time,
+            "subscribersGained": total_subscribers_gained,
+            "subscribersLost": total_subscribers_lost,
+            "netSubscribers": total_net_subscribers,
+        },
+    }
+
+
+def build_analytics_summary_context(analytics_payload: dict, channel_stats: dict = None) -> str:
+    """
+    Build compact but complete context text from analytics payload for LLM summarization.
+    """
+    rows = analytics_payload.get("rawRows", [])
+    totals = analytics_payload.get("totals", {})
+    start_day = rows[0][0] if rows else "N/A"
+    end_day = rows[-1][0] if rows else "N/A"
+
+    channel_block = {}
+    if channel_stats:
+        channel_block = {
+            "title": channel_stats.get("title", ""),
+            "channelId": channel_stats.get("channelId", ""),
+            "subscribers": channel_stats.get("subscribers", 0),
+            "views": channel_stats.get("views", 0),
+            "videoCount": channel_stats.get("videoCount", 0),
+        }
+
+    context_payload = {
+        "period": {"startDate": start_day, "endDate": end_day, "days": len(rows)},
+        "channelRealtime": channel_block,
+        "totals": totals,
+        "dailyRows": rows,
+    }
+
+    return json.dumps(context_payload, separators=(",", ":"))
