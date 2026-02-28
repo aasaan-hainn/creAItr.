@@ -41,6 +41,5 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # YouTube Analytics OAuth
 YOUTUBE_ANALYTICS_REDIRECT_URI = os.getenv(
-    "YOUTUBE_ANALYTICS_REDIRECT_URI", 
-    "http://localhost:5000/auth/youtube/callback"
+    "YOUTUBE_ANALYTICS_REDIRECT_URI", "http://localhost:5000/auth/youtube/callback"
 )

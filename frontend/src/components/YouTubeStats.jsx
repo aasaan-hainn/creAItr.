@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -12,7 +12,7 @@ import {
     Filler
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { IconBrandYoutube, IconLoader2, IconAlertCircle, IconUsers, IconEye, IconVideo, IconCheck, IconCalendar, IconSparkles } from '@tabler/icons-react';
+import { IconBrandYoutube, IconLoader2, IconAlertCircle, IconUsers, IconEye, IconVideo, IconCheck, IconCalendar, IconSparkles, IconMessageCircle, IconSend } from '@tabler/icons-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -50,6 +50,12 @@ const YouTubeStats = ({ token }) => {
     const [aiSummary, setAiSummary] = useState(null);
     const [isLoadingSummary, setIsLoadingSummary] = useState(false);
     const [summaryError, setSummaryError] = useState('');
+    const [isAskAiOpen, setIsAskAiOpen] = useState(false);
+    const [chatHistory, setChatHistory] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const [chatError, setChatError] = useState('');
+    const chatScrollRef = useRef(null);
 
     // Keep original range payload so we can merge fresh live channel stats
     const [fullData, setFullData] = useState(null);
@@ -82,6 +88,12 @@ const YouTubeStats = ({ token }) => {
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
     }, [token]);
+
+    useEffect(() => {
+        if (chatScrollRef.current) {
+            chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        }
+    }, [chatHistory, isChatLoading, isAskAiOpen]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -206,6 +218,107 @@ const YouTubeStats = ({ token }) => {
             setSummaryError(err.message || 'Failed to generate AI summary');
         } finally {
             setIsLoadingSummary(false);
+        }
+    };
+
+    const getCurrentAnalyticsContext = () => {
+        const views = analyticsData?.datasets?.views?.data || [];
+        const watch = analyticsData?.datasets?.watchTime?.data || [];
+        const subs = analyticsData?.datasets?.subscribers?.data || [];
+        const labels = analyticsData?.labels || [];
+
+        const totals = {
+            views: views.reduce((sum, item) => sum + (Number(item) || 0), 0),
+            watchTimeMinutes: watch.reduce((sum, item) => sum + (Number(item) || 0), 0),
+            netSubscribers: subs.reduce((sum, item) => sum + (Number(item) || 0), 0)
+        };
+
+        return {
+            range: { startDate, endDate, points: labels.length },
+            labels,
+            series: {
+                views,
+                watchTimeMinutes: watch,
+                netSubscribers: subs
+            },
+            totals,
+            summary: aiSummary,
+            channel: channelStats
+                ? {
+                    title: channelStats.title,
+                    channelId: channelStats.channelId,
+                    subscribers: channelStats.subscribers,
+                    views: channelStats.views,
+                    videoCount: channelStats.videoCount
+                }
+                : null
+        };
+    };
+
+    // NVIDIA-backed analytics chat call.
+    // If your backend route differs, update this endpoint.
+    const fetchNvidiaChatResponse = async (messages, analyticsContext) => {
+        const systemMessage = {
+            role: 'system',
+            content: `You are a helpful data analytics assistant for a content creator.
+
+CURRENT ANALYTICS CONTEXT:
+${JSON.stringify(analyticsContext)}
+
+STRICT FORMATTING RULES:
+
+1. You must answer questions based strictly on the analytics context provided above.
+2. Keep your answers extremely short, clear, and to the point (1-3 sentences maximum).
+3. You MUST use plain text only.
+4. Absolutely NO Markdown formatting (do not use asterisks **, hash symbols #, backticks \`, or markdown bullet points).
+5. Do not use bold, italics, or code blocks. Just output raw, conversational text.`
+        };
+
+        // System message is always first.
+        const apiMessages = [systemMessage, ...messages];
+
+        const response = await fetch(`${API_BASE_URL}/analytics/ai-chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ messages: apiMessages })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to get AI response');
+        }
+        return data.text || data.response || data.answer || 'No response returned by AI.';
+    };
+
+    const handleAskAiSubmit = async (event) => {
+        event.preventDefault();
+        const trimmed = chatInput.trim();
+        if (!trimmed || isChatLoading) return;
+
+        setChatError('');
+        const nextMessages = [...chatHistory, { role: 'user', content: trimmed }];
+        setChatHistory(nextMessages);
+        setChatInput('');
+        setIsChatLoading(true);
+
+        try {
+            const analyticsContext = getCurrentAnalyticsContext();
+            const assistantReply = await fetchNvidiaChatResponse(nextMessages, analyticsContext);
+            setChatHistory((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
+        } catch (err) {
+            setChatError(err.message || 'Failed to get AI response');
+            setChatHistory((prev) => [
+                ...prev,
+                {
+                    role: 'assistant',
+                    content: 'I could not answer right now. Please try again in a moment.'
+                }
+            ]);
+        } finally {
+            setIsChatLoading(false);
         }
     };
 
@@ -615,10 +728,20 @@ const YouTubeStats = ({ token }) => {
                             </div>
 
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6 lg:col-span-2">
-                                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                                    <IconSparkles className="w-5 h-5 text-indigo-400" />
-                                    AI Summary
-                                </h3>
+                                <div className="flex items-center justify-between gap-3 mb-4">
+                                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                        <IconSparkles className="w-5 h-5 text-indigo-400" />
+                                        AI Summary
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAskAiOpen((prev) => !prev)}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-400/40 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 shadow-[0_0_14px_rgba(99,102,241,0.35)] transition-all flex items-center gap-1.5"
+                                    >
+                                        <IconMessageCircle className="w-4 h-4" />
+                                        {isAskAiOpen ? 'Hide Ask AI' : 'Ask AI'}
+                                    </button>
+                                </div>
                                 {isLoadingSummary ? (
                                     <div className="text-slate-300 text-sm flex items-center gap-2">
                                         <IconLoader2 className="w-4 h-4 animate-spin" />
@@ -681,6 +804,63 @@ const YouTubeStats = ({ token }) => {
                                 ) : (
                                     <p className="text-slate-400 text-sm">No summary available for the selected range.</p>
                                 )}
+
+                                <div className={`overflow-hidden transition-all duration-300 ease-out ${isAskAiOpen ? 'max-h-[520px] opacity-100 mt-5 pt-5 border-t border-white/10' : 'max-h-0 opacity-0'}`}>
+                                    <div className="bg-black/30 border border-white/10 rounded-lg p-4">
+                                        <div
+                                            ref={chatScrollRef}
+                                            className="h-56 overflow-y-auto pr-2 space-y-3"
+                                        >
+                                            {chatHistory.length === 0 ? (
+                                                <p className="text-slate-400 text-sm">
+                                                    Ask about growth decisions for this exact date range. AI answers are context-bound to the analytics and summary shown above.
+                                                </p>
+                                            ) : (
+                                                chatHistory.map((msg, idx) => (
+                                                    <div
+                                                        key={`chat-${idx}`}
+                                                        className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words border ${msg.role === 'user'
+                                                            ? 'bg-indigo-500/15 border-indigo-400/30 text-indigo-100 ml-6'
+                                                            : 'bg-white/[0.04] border-white/10 text-slate-200 mr-6'
+                                                            }`}
+                                                    >
+                                                        <p className="text-[11px] uppercase tracking-wide mb-1 opacity-70">
+                                                            {msg.role === 'user' ? 'You' : 'AI'}
+                                                        </p>
+                                                        <p>{msg.content}</p>
+                                                    </div>
+                                                ))
+                                            )}
+                                            {isChatLoading && (
+                                                <div className="rounded-lg px-3 py-2 text-sm bg-white/[0.04] border border-white/10 text-slate-200 mr-6 flex items-center gap-2">
+                                                    <IconLoader2 className="w-4 h-4 animate-spin" />
+                                                    AI is typing...
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {chatError && <p className="text-red-400 text-xs mt-3">{chatError}</p>}
+
+                                        <form onSubmit={handleAskAiSubmit} className="mt-3 flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={chatInput}
+                                                onChange={(e) => setChatInput(e.target.value)}
+                                                placeholder="Ask about trends, watch time, upload strategy..."
+                                                className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                                                disabled={isChatLoading}
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={isChatLoading || !chatInput.trim()}
+                                                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm border border-indigo-400/40 flex items-center gap-1.5"
+                                            >
+                                                <IconSend className="w-4 h-4" />
+                                                Send
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ) : (
