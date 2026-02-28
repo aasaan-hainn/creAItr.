@@ -9,6 +9,7 @@ from flask import Flask, request, Response, stream_with_context, send_file, json
 from flask_cors import CORS
 from openai import OpenAI
 from google import genai
+from google.genai import types
 from bson import ObjectId
 
 import config
@@ -968,78 +969,116 @@ def update_news():
 
 
 @app.route("/chat", methods=["POST"])
+@token_required
 def chat():
+    """AI Chat with RAG and Agentic Tools (Function Calling)"""
+    if not genai_client:
+        return jsonify({"error": "Gemini Client not initialized. Check API key."}), 500
+        
     data = request.json
     user_query = data.get("message", "")
     history = data.get("history", [])
+    project_id = data.get("projectId")
+    user_id = getattr(request, "user_id", None)
+
+    if not user_query:
+        return jsonify({"error": "No message provided"}), 400
 
     def generate():
-        # 1. RAG Search
-        results = collection.query(query_texts=[user_query], n_results=3)
+        # 1. RAG Search (News & PDFs)
+        try:
+            results = collection.query(query_texts=[user_query], n_results=5)
+            context = "No relevant context available."
+            if results and results["documents"] and results["documents"][0]:
+                context = "\n".join(results["documents"][0])
+        except Exception as e:
+            print(f"RAG Error: {e}")
+            context = "RAG search failed."
 
-        context = "No context available."
-        if results["documents"][0]:
-            context = "\n".join(results["documents"][0])
-
-        # 2. Prepare System Prompt
+        # 2. System Instruction
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-
         system_instruction = f"""
-        You are a helpful assistant for daily life.
+        You are a helpful AI Agent for Qwenify.
         Today's Date: {today}
 
-        INSTRUCTIONS:
-        1. Check the provided CONTEXT below.
-        2. If the CONTEXT contains information relevant to the user's QUESTION, use it to answer.
-        
-        CRITICAL RULE FOR NEWS:
-        3. If the user asks for "latest news", "current events", "what happened today", or specific recent updates:
-           - You MUST answer based ONLY on the provided CONTEXT.
-           - If the CONTEXT is empty or does not contain the requested news, DO NOT use your internal training data.
-           - Instead, explicitly state: "I don't have information on that in my local database. Please click 'Update News DB' to fetch the latest headlines."
+        AGENTIC TASKS:
+        1. If the user wants to "create a project", use the 'create_project' tool.
+        2. If the user wants to "write content" or "update the writing area", use the 'write_content' tool.
+           - For this tool, you MUST use the provided Project ID: {project_id or "Not Selected"}.
+           - If no Project ID is provided, ask the user to select a project first.
 
-        GENERAL KNOWLEDGE FALLBACK:
-        4. For questions NOT related to news or current events (e.g., "how to cook pasta", "explain python code"), if the CONTEXT is empty, you MAY answer using your own internal knowledge.
-        
+        NEWS & RAG RULES:
+        3. For news/current events, use ONLY the provided CONTEXT.
+        4. If the CONTEXT doesn't answer it, ask the user to "Update News DB".
+
         CONTEXT:
         {context}
         """
 
-        # 3. Construct Message Chain
-        messages_payload = [{"role": "system", "content": system_instruction}]
+        # 3. Define Gemini Tools (inside generate to capture context)
+        def create_project(name: str):
+            """Creates a new project for the user. Returns project info."""
+            project_obj = {
+                "name": name,
+                "userId": user_id,
+                "created": datetime.datetime.now().isoformat(),
+                "workspace": {"writing": "", "canvas": ""}
+            }
+            result = projects_collection.insert_one(project_obj)
+            return {"status": "success", "id": str(result.inserted_id), "name": name}
 
-        for msg in history:
-            role = "assistant" if msg["role"] == "ai" else "user"
-            messages_payload.append({"role": role, "content": msg["content"]})
+        def write_content(content: str, project_id: str):
+            """Writes or updates text content in a project's writing area."""
+            if not project_id or project_id == "Not Selected":
+                return {"error": "Please select a project first."}
+            
+            projects_collection.update_one(
+                {"_id": ObjectId(project_id)}, 
+                {"$set": {"workspace.writing": content}}
+            )
+            return {"status": "success", "project_id": project_id}
 
-        messages_payload.append({"role": "user", "content": f"QUESTION:\n{user_query}"})
+        # 4. Initialize Gemini Chat with Tools
+        try:
+            # Transform history for Gemini
+            gemini_history = []
+            for msg in history:
+                role = "user" if msg["role"] == "user" else "model"
+                gemini_history.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
 
-        # 4. Call NVIDIA (Stream)
-        completion = nvidia_client.chat.completions.create(
-            model=config.MODEL_NAME,
-            messages=messages_payload,
-            temperature=0.6,
-            top_p=0.7,
-            max_tokens=4096,
-            stream=True,
-        )
+            chat_session = genai_client.chats.create(
+                model="gemini-3-flash-preview",
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    tools=[create_project, write_content],
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False)
+                ),
+                history=gemini_history
+            )
 
-        # 5. Stream Response
-        for chunk in completion:
-            if not chunk.choices:
-                continue
+            # 5. Send Message and Stream Response
+            stream = chat_session.send_message_stream(user_query)
 
-            reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
-            if reasoning:
-                yield f"data: {json.dumps({'type': 'thought', 'content': reasoning})}\n\n"
+            for chunk in stream:
+                # Check for text content
+                if chunk.text:
+                    yield f"data: {json.dumps({'type': 'content', 'content': chunk.text})}\n\n"
+                
+                # Check for tool calls
+                if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
+                    for part in chunk.candidates[0].content.parts:
+                        if part.function_call:
+                            yield f"data: {json.dumps({'type': 'tool_intent', 'name': part.function_call.name, 'args': dict(part.function_call.args)})}\n\n"
 
-            content = chunk.choices[0].delta.content
-            if content:
-                yield f"data: {json.dumps({'type': 'answer', 'content': content})}\n\n"
+            yield "data: [DONE]\n\n"
 
-        yield "data: [DONE]\n\n"
+        except Exception as e:
+            print(f"Gemini Error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
 
 
 @app.route("/generate-drawing", methods=["POST"])

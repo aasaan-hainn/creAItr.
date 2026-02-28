@@ -45,7 +45,7 @@ const DEFAULT_MESSAGE = {
   thought: "",
 };
 
-function AIChat({ hideSidebar = false, projectId = null }) {
+function AIChat({ hideSidebar = false, projectId = null, onProjectCreated = null }) {
   const { token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -322,8 +322,15 @@ function AIChat({ hideSidebar = false, projectId = null }) {
         `${API_BASE_URL}/chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: input, history: historyPayload }),
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            message: input, 
+            history: historyPayload,
+            projectId: projectId
+          }),
         },
       );
 
@@ -351,8 +358,25 @@ function AIChat({ hideSidebar = false, projectId = null }) {
 
               if (data.type === "thought") {
                 accumulatedThought += data.content;
-              } else {
+              } else if (data.type === "content" || data.type === "answer") {
                 accumulatedContent += data.content;
+              } else if (data.type === "tool_intent") {
+                // Add a system message or visual indicator about the tool call
+                setMessages((prev) => [
+                  ...prev.filter(m => m.id !== aiMsgId), // Remove placeholder temporarily if needed or just append
+                  { 
+                    role: "ai", 
+                    isTool: true, 
+                    content: `🛠️ **Agent Action:** Executed \`${data.name}\``,
+                    id: Date.now() + Math.random() 
+                  },
+                  { role: "ai", content: "", thought: "", id: aiMsgId } // Restore placeholder
+                ]);
+                
+                // If it was a project creation, we might want to refresh lists
+                if (data.name === "create_project" && typeof onProjectCreated === "function") {
+                  onProjectCreated();
+                }
               }
 
               setMessages((prev) =>
@@ -360,7 +384,7 @@ function AIChat({ hideSidebar = false, projectId = null }) {
                   if (msg.id === aiMsgId) {
                     if (data.type === "thought") {
                       return { ...msg, thought: msg.thought + data.content };
-                    } else {
+                    } else if (data.type === "content" || data.type === "answer") {
                       return { ...msg, content: msg.content + data.content };
                     }
                   }

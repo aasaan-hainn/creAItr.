@@ -151,7 +151,7 @@ const MyProjects = () => {
 
         switch (activeTool) {
             case 'ai-chat':
-                return <AIChat hideSidebar={true} projectId={selectedProject} token={token} />;
+                return <AIChat hideSidebar={true} projectId={selectedProject} token={token} onProjectCreated={fetchProjects} />;
             case 'video-editor':
                 return <VideoEditor projectId={selectedProject} token={token} />;
             case 'photo-editor':
