@@ -22,6 +22,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
 import { motion, AnimatePresence } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
@@ -291,6 +292,52 @@ function AIChat({ hideSidebar = false, projectId = null }) {
     }
   };
 
+  // Function to handle tool calls from the AI
+  const handleToolCall = async (toolCall) => {
+    const { action, parameters } = toolCall;
+
+    try {
+      if (action === "create_project") {
+        const { name } = parameters;
+        const response = await fetch(`${API_BASE_URL}/projects`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name: name || "New Project" }),
+        });
+        const newProject = await response.json();
+        console.log("Project created:", newProject);
+        // Refresh project list if we are in MyProjects
+        // Since we don't have a direct way to trigger refresh in MyProjects from here easily
+        // without some global state or event bus, we'll assume the user will see it when they go back.
+        // But if we are in MyProjects, we might want to notify.
+      } else if (action === "write_content") {
+        if (!projectId) {
+          console.error("No project selected to write content to.");
+          return;
+        }
+        const { content } = parameters;
+        await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/writing`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ writing: content }),
+        });
+        console.log("Content written to writing area.");
+        // If we are in the writing area, it will auto-load via useEffect in WritingArea.jsx
+        // but we might need to trigger a refresh if the component doesn't know.
+        // Actually WritingArea loads on mount or projectId change.
+        // If it's already mounted, it won't reload unless we tell it.
+      }
+    } catch (error) {
+      console.error("Error executing tool call:", error);
+    }
+  };
+
   // Function to send message
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -371,6 +418,17 @@ function AIChat({ hideSidebar = false, projectId = null }) {
               console.error("Parse error", e);
             }
           }
+        }
+      }
+
+      // Detect and handle tool calls
+      const toolCallMatch = accumulatedContent.match(/<tool_call>([\s\S]*?)<\/tool_call>/);
+      if (toolCallMatch) {
+        try {
+          const toolCallData = JSON.parse(toolCallMatch[1].trim());
+          handleToolCall(toolCallData);
+        } catch (e) {
+          console.error("Failed to parse tool call JSON:", e);
         }
       }
 
@@ -573,8 +631,9 @@ function AIChat({ hideSidebar = false, projectId = null }) {
                         >
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[rehypeKatex]}
+                            rehypePlugins={[rehypeKatex, rehypeRaw]}
                             components={{
+                              tool_call: () => null,
                               code: ({ ...props }) => (
                                 <code
                                   className="bg-black/30 rounded px-1 py-0.5 text-indigo-300 font-mono text-sm"
