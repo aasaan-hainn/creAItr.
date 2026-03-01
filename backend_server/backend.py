@@ -1078,7 +1078,7 @@ def chat():
         today = datetime.datetime.now().strftime("%Y-%m-%d")
 
         system_instruction = f"""
-        You are a helpful assistant for daily life.
+        You are a helpful assistant for daily life and creative work.
         Today's Date: {today}
 
         INSTRUCTIONS:
@@ -1091,11 +1091,30 @@ def chat():
            - If the CONTEXT is empty or does not contain the requested news, DO NOT use your internal training data.
            - Instead, explicitly state: "I don't have information on that in my local database. Please click 'Update News DB' to fetch the latest headlines."
 
+        AGENTIC TASKS / TOOL USE:
+        4. You can perform specific tasks by including a special `<tool_call>` tag in your response.
+        5. Supported Tasks:
+           - `create_project(name)`: Use this if the user wants to start a new project.
+           - `write_content(content)`: Use this if the user wants to write or update content in their writing area.
+        
+        FORMAT FOR TOOL CALLS:
+        If you decide to use a tool, wrap the JSON representation of the call in `<tool_call>` tags.
+        Example:
+        I've created a new project for your marketing plan.
+        <tool_call>
+        {{
+          "action": "create_project",
+          "parameters": {{ "name": "Marketing Plan" }}
+        }}
+        </tool_call>
+
+        IMPORTANT: Always provide a natural language confirmation/reply ALONG WITH the tool call.
+
         GENERAL KNOWLEDGE FALLBACK:
-        4. For questions NOT related to news or current events (e.g., "how to cook pasta", "explain python code"), if the CONTEXT is empty, you MAY answer using your own internal knowledge.
+        6. For questions NOT related to news or current events (e.g., "how to cook pasta", "explain python code"), if the CONTEXT is empty, you MAY answer using your own internal knowledge.
         
         CONTEXT:
-        {context}
+        {{context}}
         """
 
         # 3. Construct Message Chain
