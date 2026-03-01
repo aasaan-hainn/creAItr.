@@ -559,7 +559,9 @@ def youtube_callback():
                     "youtubeAnalyticsTokens": {
                         "access_token": tokens["access_token"],
                         "refresh_token": tokens.get("refresh_token"),
-                        "expires_at": datetime.datetime.utcnow() + datetime.timedelta(seconds=tokens.get("expires_in", 3600))
+                        "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+                            seconds=tokens.get("expires_in", 3600)
+                        )
                     }
                 }
             }
@@ -611,8 +613,14 @@ def refresh_youtube_token(user_id):
 
     # Check if token is expired
     expires_at = tokens.get("expires_at")
-    if expires_at and datetime.datetime.utcnow() < expires_at:
-        return tokens["access_token"]
+    if expires_at:
+        now_utc = datetime.datetime.now(datetime.UTC)
+        # Handle both naive and timezone-aware datetimes from MongoDB.
+        if expires_at.tzinfo is None:
+            if now_utc.replace(tzinfo=None) < expires_at:
+                return tokens["access_token"]
+        elif now_utc < expires_at:
+            return tokens["access_token"]
 
     # Refresh token
     refresh_token = tokens.get("refresh_token")
@@ -640,7 +648,8 @@ def refresh_youtube_token(user_id):
             {
                 "$set": {
                     "youtubeAnalyticsTokens.access_token": new_tokens["access_token"],
-                    "youtubeAnalyticsTokens.expires_at": datetime.datetime.utcnow() + datetime.timedelta(seconds=new_tokens.get("expires_in", 3600))
+                    "youtubeAnalyticsTokens.expires_at": datetime.datetime.now(datetime.UTC)
+                    + datetime.timedelta(seconds=new_tokens.get("expires_in", 3600))
                 }
             }
         )
@@ -938,6 +947,90 @@ Rules:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Failed to generate analytics summary: {str(e)}"}), 500
+
+
+@app.route("/analytics/ai-chat", methods=["POST"])
+@token_required
+def analytics_ai_chat():
+    """
+    Context-bound analytics chat endpoint for dashboard Ask AI.
+    Expects: { messages: [{role, content}, ...] } with a system message first.
+    Returns short plain-text response.
+    """
+    data = request.json or {}
+    messages = data.get("messages")
+
+    if not isinstance(messages, list) or not messages:
+        return jsonify({"error": "messages array is required"}), 400
+
+    normalized_messages = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = (msg.get("content") or "").strip()
+        if role in {"system", "user", "assistant"} and content:
+            normalized_messages.append({"role": role, "content": content})
+
+    if not normalized_messages:
+        return jsonify({"error": "No valid messages provided"}), 400
+
+    # Ensure a system message exists first, even if caller forgot it.
+    if normalized_messages[0]["role"] != "system":
+        normalized_messages.insert(
+            0,
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful analytics assistant. "
+                    "Answer in plain text only, no markdown, and keep it to 1-3 short sentences."
+                ),
+            },
+        )
+
+    try:
+        completion = nvidia_client.chat.completions.create(
+            model=config.MODEL_NAME,
+            messages=normalized_messages,
+            temperature=0.2,
+            top_p=0.8,
+            max_tokens=220,
+            stream=False,
+        )
+
+        choices = getattr(completion, "choices", None) or []
+        if not choices:
+            return jsonify({"error": "AI returned no choices"}), 502
+
+        first_choice = choices[0] if len(choices) > 0 else None
+        message = getattr(first_choice, "message", None)
+        if message is None:
+            # Some models return text in delta/content-like structures.
+            fallback_text = getattr(first_choice, "text", None)
+            if isinstance(fallback_text, str) and fallback_text.strip():
+                text = fallback_text.strip()
+            else:
+                return jsonify({"error": "AI returned an empty message"}), 502
+        else:
+            text = message.content or getattr(message, "reasoning_content", "") or ""
+        text = text.strip()
+
+        # Enforce plain text (strip common markdown markers and bullet prefixes).
+        text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+        text = re.sub(r"[`*_#]", "", text)
+        text = re.sub(r"^\s*[-•]\s+", "", text, flags=re.MULTILINE)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        # Enforce short response length: max 3 sentences.
+        sentence_chunks = re.split(r"(?<=[.!?])\s+", text)
+        text = " ".join([s for s in sentence_chunks if s][:3]).strip()
+
+        if not text:
+            text = "I could not generate a response from the current analytics context."
+
+        return jsonify({"text": text})
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate analytics chat response: {str(e)}"}), 500
 
 
 @app.route("/tts", methods=["POST"])
