@@ -52,7 +52,7 @@ creAItr. is a full-stack AI-powered creative platform that combines large langua
 - **PDF Processing** for local document ingestion
 - **Vector Storage** with ChromaDB for fast semantic search
 
-### 📊 YouTube Analytics *(Optional)*
+### 📊 YouTube Analytics
 - Channel statistics and growth metrics
 - Historical data visualization
 - Automated snapshot system
