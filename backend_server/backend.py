@@ -1479,7 +1479,7 @@ def delete_project(project_id):
 @token_required
 def get_tasks():
     """Get all tasks for the logged-in user"""
-    tasks = list(tasks_collection.find({"userId": request.user_id}))
+    tasks = list(tasks_collection.find({"userId": request.user_id}).sort("order", 1))
     for task in tasks:
         task["_id"] = str(task["_id"])
     return jsonify(tasks)
@@ -1490,13 +1490,23 @@ def get_tasks():
 def create_task():
     """Create a new task"""
     data = request.json
+    status = data.get("status", "todo")
+    
+    # Get max order for this status
+    last_task = tasks_collection.find_one(
+        {"userId": request.user_id, "status": status},
+        sort=[("order", -1)]
+    )
+    new_order = (last_task["order"] + 1) if last_task else 0
+
     task = {
         "userId": request.user_id,
         "title": data.get("title", "Untitled Task"),
         "description": data.get("description", ""),
-        "status": data.get("status", "todo"),  # todo, in-progress, done
+        "status": status,
         "dueDate": data.get("dueDate", ""),
         "projectId": data.get("projectId", ""),
+        "order": new_order,
         "createdAt": datetime.datetime.now().isoformat(),
     }
     result = tasks_collection.insert_one(task)
@@ -1511,7 +1521,7 @@ def update_task(task_id):
     data = request.json
     update_data = {}
 
-    fields = ["title", "description", "status", "dueDate", "projectId"]
+    fields = ["title", "description", "status", "dueDate", "projectId", "order"]
     for field in fields:
         if field in data:
             update_data[field] = data[field]

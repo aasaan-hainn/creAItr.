@@ -6,7 +6,6 @@ import {
     IconCalendar, 
     IconExternalLink, 
     IconX, 
-    IconGripVertical,
     IconLoader2
 } from "@tabler/icons-react";
 
@@ -41,6 +40,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
+            // Data is already sorted by 'order' from backend
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -84,7 +84,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
         }
     };
 
-    const updateTaskStatus = async (taskId, newStatus) => {
+    const updateTaskStatusAndOrder = async (taskId, newStatus, newOrder) => {
         try {
             const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                 method: 'PUT',
@@ -92,12 +92,15 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({ status: newStatus, order: newOrder })
             });
             const updatedTask = await response.json();
-            setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+            
+            // Re-fetch all tasks to ensure correct ordering is displayed
+            // (Alternatively, update locally but bulk updates might be needed)
+            fetchTasks();
         } catch (error) {
-            console.error('Error updating task status:', error);
+            console.error('Error updating task:', error);
         }
     };
 
@@ -115,9 +118,26 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
         e.preventDefault();
     };
 
-    const onDrop = (e, status) => {
+    const onDrop = (e, status, targetTaskIndex = -1) => {
+        e.preventDefault();
         const taskId = e.dataTransfer.getData('taskId');
-        updateTaskStatus(taskId, status);
+        
+        // Find moving task
+        const taskToMove = tasks.find(t => t._id === taskId);
+        if (!taskToMove) return;
+
+        // Get all tasks in the target status
+        const columnTasks = tasks.filter(t => t.status === status);
+        
+        // Simple reordering logic
+        let newOrder;
+        if (targetTaskIndex === -1 || columnTasks.length === 0) {
+            newOrder = columnTasks.length;
+        } else {
+            newOrder = targetTaskIndex;
+        }
+
+        updateTaskStatusAndOrder(taskId, status, newOrder);
     };
 
     if (loading) {
@@ -165,11 +185,14 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
+                        <div 
+                            className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent"
+                            onDrop={(e) => onDrop(e, column.id, -1)}
+                        >
                             <AnimatePresence mode='popLayout'>
                                 {tasks
                                     .filter(t => t.status === column.id)
-                                    .map(task => (
+                                    .map((task, index) => (
                                         <motion.div
                                             key={task._id}
                                             layout
@@ -178,8 +201,22 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             draggable
                                             onDragStart={(e) => onDragStart(e, task._id)}
-                                            className="p-4 bg-slate-900/50 border border-white/10 rounded-xl hover:border-white/20 transition-all group cursor-grab active:cursor-grabbing shadow-xl"
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                onDrop(e, column.id, index);
+                                            }}
+                                            className="p-4 bg-slate-900/50 border border-white/10 rounded-xl hover:border-white/20 transition-all group cursor-grab active:cursor-grabbing shadow-xl relative"
                                         >
+                                            {/* Card Number */}
+                                            <div className="absolute top-2 right-10 text-[10px] font-mono text-slate-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                                #{index + 1}
+                                            </div>
+
                                             <div className="flex items-start justify-between mb-2">
                                                 <h4 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
                                                     {task.title}
