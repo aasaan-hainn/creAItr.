@@ -8,6 +8,7 @@ import PhotoEditor from '../components/tools/PhotoEditor';
 import Canvas from '../components/tools/Canvas';
 import WritingArea from '../components/tools/WritingArea';
 import YouTubeStats from '../components/YouTubeStats';
+import KanbanBoard from '../components/KanbanBoard';
 import { useAuth } from '../context/AuthContext';
 import {
     IconMessageChatbot,
@@ -19,7 +20,8 @@ import {
     IconArrowLeft,
     IconTrash,
     IconX,
-    IconChartBar
+    IconChartBar,
+    IconLayoutKanban
 } from "@tabler/icons-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -36,6 +38,7 @@ const MyProjects = () => {
     const [newProjectName, setNewProjectName] = useState('');
     const [creating, setCreating] = useState(false);
     const [showStats, setShowStats] = useState(false);
+    const [showKanban, setShowKanban] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Helper function to get auth headers
@@ -190,7 +193,7 @@ const MyProjects = () => {
                     {/* Header Section of Sidebar */}
                     <div className="flex flex-col gap-3">
                         <button
-                            onClick={() => { setShowStats(true); setSelectedProject(null); setActiveTool(null); }}
+                            onClick={() => { setShowStats(true); setShowKanban(false); setSelectedProject(null); setActiveTool(null); }}
                             className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all group ${showStats
                                 ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
                                 : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
@@ -201,7 +204,18 @@ const MyProjects = () => {
                         </button>
 
                         <button
-                            onClick={() => { setShowCreateModal(true); setShowStats(false); }}
+                            onClick={() => { setShowKanban(true); setShowStats(false); setSelectedProject(null); setActiveTool(null); }}
+                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all group ${showKanban
+                                ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                                : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                                }`}
+                        >
+                            <IconLayoutKanban className={`w-5 h-5 ${showKanban ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
+                            <span className="font-semibold text-sm">Todo List</span>
+                        </button>
+
+                        <button
+                            onClick={() => { setShowCreateModal(true); setShowStats(false); setShowKanban(false); }}
                             className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
                         >
                             <IconPlus className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300" />
@@ -223,7 +237,7 @@ const MyProjects = () => {
                             projects.map((project) => (
                                 <div
                                     key={project._id}
-                                    onClick={() => { setSelectedProject(project._id); setShowStats(false); }}
+                                    onClick={() => { setSelectedProject(project._id); setShowStats(false); setShowKanban(false); }}
                                     className={`p-4 rounded-xl border transition-all cursor-pointer relative group ${selectedProject === project._id
                                         ? 'bg-white/5 border-indigo-500/50'
                                         : 'border-transparent hover:bg-white/5 hover:border-white/10'
@@ -270,6 +284,17 @@ const MyProjects = () => {
                     {showStats ? (
                         /* Stats Section - YouTube Analytics */
                         <YouTubeStats token={token} />
+                    ) : showKanban ? (
+                        /* Kanban Board Section */
+                        <KanbanBoard 
+                            token={token} 
+                            projects={projects} 
+                            onNavigateToProject={(id) => {
+                                setSelectedProject(id);
+                                setShowKanban(false);
+                                setActiveTool('ai-chat'); // Default to AI Chat when jumping to project
+                            }}
+                        />
                     ) : (
                         <>
                             {/* Project Toolbar */}

@@ -11,6 +11,7 @@ projects_collection = db["projects"]
 users_collection = db["users"]
 chats_collection = db["chats"]
 channel_stats_collection = db["channel_stats"]
+tasks_collection = db["tasks"]
 
 # Create unique index on email for users
 users_collection.create_index("email", unique=True)

@@ -13,7 +13,7 @@ from bson import ObjectId
 
 import config
 from database import collection
-from mongodb import projects_collection, users_collection, chats_collection
+from mongodb import projects_collection, users_collection, chats_collection, tasks_collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
@@ -1470,6 +1470,79 @@ def delete_project(project_id):
         return jsonify({"status": "deleted"})
 
     return jsonify({"error": "Project not found or access denied"}), 404
+
+
+# --- TASK ROUTES (KANBAN) ---
+
+
+@app.route("/tasks", methods=["GET"])
+@token_required
+def get_tasks():
+    """Get all tasks for the logged-in user"""
+    tasks = list(tasks_collection.find({"userId": request.user_id}))
+    for task in tasks:
+        task["_id"] = str(task["_id"])
+    return jsonify(tasks)
+
+
+@app.route("/tasks", methods=["POST"])
+@token_required
+def create_task():
+    """Create a new task"""
+    data = request.json
+    task = {
+        "userId": request.user_id,
+        "title": data.get("title", "Untitled Task"),
+        "description": data.get("description", ""),
+        "status": data.get("status", "todo"),  # todo, in-progress, done
+        "dueDate": data.get("dueDate", ""),
+        "projectId": data.get("projectId", ""),
+        "createdAt": datetime.datetime.now().isoformat(),
+    }
+    result = tasks_collection.insert_one(task)
+    task["_id"] = str(result.inserted_id)
+    return jsonify(task), 201
+
+
+@app.route("/tasks/<task_id>", methods=["PUT"])
+@token_required
+def update_task(task_id):
+    """Update a task"""
+    data = request.json
+    update_data = {}
+
+    fields = ["title", "description", "status", "dueDate", "projectId"]
+    for field in fields:
+        if field in data:
+            update_data[field] = data[field]
+
+    if not update_data:
+        return jsonify({"error": "No data to update"}), 400
+
+    result = tasks_collection.update_one(
+        {"_id": ObjectId(task_id), "userId": request.user_id}, {"$set": update_data}
+    )
+
+    if result.matched_count > 0:
+        task = tasks_collection.find_one({"_id": ObjectId(task_id)})
+        task["_id"] = str(task["_id"])
+        return jsonify(task)
+
+    return jsonify({"error": "Task not found or access denied"}), 404
+
+
+@app.route("/tasks/<task_id>", methods=["DELETE"])
+@token_required
+def delete_task(task_id):
+    """Delete a task"""
+    result = tasks_collection.delete_one(
+        {"_id": ObjectId(task_id), "userId": request.user_id}
+    )
+
+    if result.deleted_count > 0:
+        return jsonify({"status": "deleted"})
+
+    return jsonify({"error": "Task not found or access denied"}), 404
 
 
 # --- WORKSPACE ROUTES ---
