@@ -28,6 +28,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
+import { parseMermaidToExcalidraw } from "@excalidraw/mermaid-to-excalidraw";
+import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Helper to convert LaTeX delimiters to Markdown delimiters
@@ -332,6 +335,73 @@ function AIChat({ hideSidebar = false, projectId = null }) {
         // but we might need to trigger a refresh if the component doesn't know.
         // Actually WritingArea loads on mount or projectId change.
         // If it's already mounted, it won't reload unless we tell it.
+      } else if (action === "draw_diagram") {
+        if (!projectId) {
+          console.error("No project selected to draw diagram in.");
+          return;
+        }
+        const { prompt: diagramPrompt } = parameters;
+
+        // 1. Get Mermaid code from backend
+        const res = await fetch(`${API_BASE_URL}/generate-drawing`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: diagramPrompt }),
+        });
+        const drawData = await res.json();
+        if (drawData.error) throw new Error(drawData.error);
+
+        // 2. Parse Mermaid to Excalidraw skeleton
+        const { elements: skeletonElements } = await parseMermaidToExcalidraw(drawData.mermaid);
+        const excalidrawElements = convertToExcalidrawElements(skeletonElements);
+
+        // 3. Fetch current canvas state to merge
+        const canvasRes = await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const currentCanvas = await canvasRes.json();
+
+        let mergedElements = excalidrawElements;
+        let appState = { viewBackgroundColor: "#ffffff" };
+
+        if (currentCanvas.canvas) {
+          try {
+            const parsed = typeof currentCanvas.canvas === 'string'
+              ? JSON.parse(currentCanvas.canvas)
+              : currentCanvas.canvas;
+
+            const existingElements = parsed.elements || [];
+            appState = parsed.appState || appState;
+
+            // Offset new elements to avoid overlap
+            const offsetX = existingElements.length > 0 ? 100 : 0;
+            const offsetY = existingElements.length > 0 ? 100 : 0;
+
+            const offsetElements = excalidrawElements.map(el => ({
+              ...el,
+              x: el.x + offsetX,
+              y: el.y + offsetY,
+            }));
+
+            mergedElements = [...existingElements, ...offsetElements];
+          } catch (e) {
+            console.error("Failed to merge with existing canvas", e);
+          }
+        }
+
+        // 4. Save merged state back to backend
+        await fetch(`${API_BASE_URL}/projects/${projectId}/workspace/canvas`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            canvas: JSON.stringify({ elements: mergedElements, appState })
+          })
+        });
+
+        console.log("Diagram drawn and saved to canvas.");
       }
     } catch (error) {
       console.error("Error executing tool call:", error);

@@ -1096,6 +1096,7 @@ def chat():
         5. Supported Tasks:
            - `create_project(name)`: Use this if the user wants to start a new project.
            - `write_content(content)`: Use this if the user wants to write or update content in their writing area.
+           - `draw_diagram(prompt)`: Use this if the user wants to create a diagram, flowchart, or any visual representation. The prompt should be a clear description of the diagram.
         
         FORMAT FOR TOOL CALLS:
         If you decide to use a tool, wrap the JSON representation of the call in `<tool_call>` tags.
