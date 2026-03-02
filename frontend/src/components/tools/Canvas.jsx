@@ -354,7 +354,7 @@ export default function Canvas({ projectId, token }) {
                     {/* Footer */}
                     <div className="mt-auto pt-4 border-t border-white/5">
                         <p className="text-xs text-slate-600 text-center">
-                            Powered by Qwen AI • Mermaid Diagrams
+                            Powered by creAItr. AI • Mermaid Diagrams
                         </p>
                     </div>
                 </div>

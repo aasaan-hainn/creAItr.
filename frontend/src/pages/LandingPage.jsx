@@ -173,7 +173,7 @@ const LandingPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <FeatureCard
                   icon={Bot}
-                  title="Qwen 2.5 Powered"
+                  title="creAItr. AI Powered"
                   description="Leveraging the massive 72B parameter model for unmatched reasoning and coding capabilities."
                 />
                 <FeatureCard

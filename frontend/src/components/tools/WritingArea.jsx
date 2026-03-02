@@ -611,7 +611,7 @@ export default function WritingArea({ projectId, token }) {
           {/* Footer */}
           <div className="mt-auto pt-4 border-t border-white/5">
             <p className="text-xs text-slate-600 text-center">
-              Powered by Qwen AI
+              Powered by creAItr. AI
             </p>
           </div>
         </div>

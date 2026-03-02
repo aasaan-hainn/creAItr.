@@ -45,7 +45,7 @@ const preprocessLaTeX = (content) => {
 
 const DEFAULT_MESSAGE = {
   role: "ai",
-  content: "Hello! I am connected to **Qwen 3 (NVIDIA)** and your local **News Database**. \n\nI can analyze PDFs, read the latest news, and answer your questions with real-time reasoning.",
+  content: "Hello! How can I help you today? I can analyze your PDFs, search through the latest news, and assist you with your creative projects in real-time.",
   thought: "",
 };
 
@@ -697,7 +697,7 @@ function AIChat({ hideSidebar = false, projectId = null }) {
               )}
             </button>
             <div className="text-center text-[10px] text-slate-600">
-              Powered by RAG • Qwen 2.5
+              Powered by RAG • creAItr. AI
             </div>
           </div>
         </motion.div>

@@ -71,7 +71,7 @@ const Support = () => {
         },
         {
             question: "What specific AI models do you use?",
-            answer: "We primarily utilize Qwen 2.5 72B for text generation and coding tasks due to its superior reasoning capabilities. For image generation, we use a custom-tuned Stable Diffusion XL model."
+            answer: "We utilize state-of-the-art large language models for text generation and coding tasks, ensuring superior reasoning capabilities. For image and visual content generation, we use high-performance, custom-tuned generative models."
         }
     ];
 
