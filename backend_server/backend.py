@@ -1045,19 +1045,59 @@ def tts_endpoint():
     return send_file(audio_stream, mimetype="audio/mpeg")
 
 
+import threading
+
+# Global state for background tasks
+update_status = {
+    "is_updating": False,
+    "last_update": None,
+    "progress": "",
+    "error": None
+}
+
+def run_update_task():
+    global update_status
+    try:
+        update_status["is_updating"] = True
+        update_status["error"] = None
+        update_status["progress"] = "Clearing old news..."
+        clear_existing_news()
+
+        update_status["progress"] = "Fetching RSS news..."
+        rss_titles = fetch_and_store_news()
+
+        update_status["progress"] = "Fetching NewsAPI data..."
+        newsapi_titles = fetch_newsapi_data()
+
+        update_status["progress"] = "Scanning and ingesting PDFs..."
+        pdf_files = ingest_local_pdfs()
+
+        update_status["last_update"] = datetime.datetime.now().isoformat()
+        update_status["progress"] = "Complete"
+    except Exception as e:
+        print(f"Background update error: {e}")
+        update_status["error"] = str(e)
+    finally:
+        update_status["is_updating"] = False
+
 @app.route("/update-news", methods=["POST"])
+@token_required
 def update_news():
-    """Trigger this button from frontend to refresh news & PDFS"""
-    # 1. Clear old news to prevent stale data
-    clear_existing_news()
+    """Trigger background news & PDF refresh"""
+    global update_status
+    if update_status["is_updating"]:
+        return jsonify({"status": "already_updating", "message": "Update already in progress"}), 409
+    
+    thread = threading.Thread(target=run_update_task)
+    thread.start()
+    
+    return jsonify({"status": "started", "message": "Background update started"})
 
-    # 2. Fetch fresh data
-    rss_titles = fetch_and_store_news()
-    newsapi_titles = fetch_newsapi_data()
-    pdf_files = ingest_local_pdfs()
-
-    summary = rss_titles + newsapi_titles + [f"PDF: {f}" for f in pdf_files]
-    return {"status": "success", "articles": summary}
+@app.route("/update-news/status", methods=["GET"])
+@token_required
+def get_update_status():
+    """Check the status of the background update"""
+    return jsonify(update_status)
 
 
 @app.route("/chat", methods=["POST"])

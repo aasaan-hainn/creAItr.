@@ -263,18 +263,63 @@ function AIChat({ hideSidebar = false, projectId = null }) {
     }
   };
 
+  const [updateProgress, setUpdateProgress] = useState("");
+
+  // Poll for update status
+  useEffect(() => {
+    let interval;
+    if (newsLoading) {
+      interval = setInterval(async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/update-news/status`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          const data = await response.json();
+          setUpdateProgress(data.progress);
+          
+          if (!data.is_updating) {
+            setNewsLoading(false);
+            if (data.error) {
+              alert("Error updating database: " + data.error);
+            } else {
+              // Only alert if it was actually running
+              if (data.progress === "Complete") {
+                alert("Database Updated Successfully!");
+              }
+            }
+            clearInterval(interval);
+          }
+        } catch (e) {
+          console.error("Status check error:", e);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [newsLoading, token]);
+
   // Function to refresh news database
   const updateNews = async () => {
+    if (newsLoading) return;
+    
     setNewsLoading(true);
+    setUpdateProgress("Starting update...");
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/update-news`, {
+      const response = await fetch(`${API_BASE_URL}/update-news`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
       });
-      alert("News Database Updated Successfully!");
+      
+      if (response.status === 409) {
+        // Already updating
+        return;
+      }
+      
+      if (!response.ok) throw new Error("Failed to start update");
+      
     } catch (e) {
-      alert("Error updating news: " + e);
+      alert("Error starting update: " + e.message);
+      setNewsLoading(false);
     }
-    setNewsLoading(false);
   };
 
   // Function to play TTS
@@ -636,13 +681,20 @@ function AIChat({ hideSidebar = false, projectId = null }) {
             <button
               onClick={updateNews}
               disabled={newsLoading}
-              className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 p-3 rounded-xl transition-all text-sm disabled:opacity-50"
+              className={`w-full flex flex-col items-center justify-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 p-3 rounded-xl transition-all text-sm disabled:opacity-80 ${newsLoading ? 'border-indigo-500/50' : ''}`}
             >
-              <RefreshCw
-                size={16}
-                className={newsLoading ? "animate-spin" : ""}
-              />
-              {newsLoading ? "Updating..." : "Update Knowledge Base"}
+              <div className="flex items-center gap-2">
+                <RefreshCw
+                  size={16}
+                  className={newsLoading ? "animate-spin text-indigo-400" : ""}
+                />
+                <span>{newsLoading ? "Updating..." : "Update Knowledge Base"}</span>
+              </div>
+              {newsLoading && updateProgress && (
+                <div className="text-[10px] text-slate-500 font-mono animate-pulse">
+                  {updateProgress}
+                </div>
+              )}
             </button>
             <div className="text-center text-[10px] text-slate-600">
               Powered by RAG • Qwen 2.5

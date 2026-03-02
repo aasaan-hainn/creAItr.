@@ -1,5 +1,6 @@
 import os
 import datetime
+import time
 from pypdf import PdfReader
 import config
 from database import collection
@@ -23,6 +24,9 @@ def ingest_local_pdfs():
                     print(f"Processing: {file}")
                     
                     for i, page in enumerate(reader.pages):
+                        # Yield control to prevent OOM / high CPU locks
+                        time.sleep(0.1) 
+                        
                         text = page.extract_text()
                         if text:
                             # Contextual ID: filename_page
