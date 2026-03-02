@@ -156,7 +156,7 @@ const MyProjects = () => {
         onClick: () => setActiveTool(tool.id)
     })), [tools]);
 
-    const renderTool = () => {
+    const renderTools = () => {
         if (!selectedProject) {
             return (
                 <div className="flex items-center justify-center h-full text-slate-500">
@@ -168,27 +168,33 @@ const MyProjects = () => {
             );
         }
 
-        switch (activeTool) {
-            case 'ai-chat':
-                return <AIChat hideSidebar={true} projectId={selectedProject} token={token} />;
-            case 'video-editor':
-                return <VideoEditor projectId={selectedProject} token={token} />;
-            case 'photo-editor':
-                return <PhotoEditor projectId={selectedProject} token={token} />;
-            case 'canvas':
-                return <Canvas projectId={selectedProject} token={token} />;
-            case 'writing-area':
-                return <WritingArea projectId={selectedProject} token={token} />;
-            default:
-                return (
+        return (
+            <div className="h-full w-full relative" key={selectedProject}>
+                <div className={activeTool === 'ai-chat' ? "h-full w-full" : "hidden"}>
+                    <AIChat hideSidebar={true} projectId={selectedProject} token={token} />
+                </div>
+                <div className={activeTool === 'video-editor' ? "h-full w-full" : "hidden"}>
+                    <VideoEditor projectId={selectedProject} token={token} />
+                </div>
+                <div className={activeTool === 'photo-editor' ? "h-full w-full" : "hidden"}>
+                    <PhotoEditor projectId={selectedProject} token={token} />
+                </div>
+                <div className={activeTool === 'canvas' ? "h-full w-full" : "hidden"}>
+                    <Canvas projectId={selectedProject} token={token} />
+                </div>
+                <div className={activeTool === 'writing-area' ? "h-full w-full" : "hidden"}>
+                    <WritingArea projectId={selectedProject} token={token} />
+                </div>
+                {!activeTool && (
                     <div className="flex items-center justify-center h-full text-slate-500">
                         <div className="text-center">
                             <h2 className="text-2xl font-light mb-2">Select a Tool</h2>
                             <p className="text-sm">Choose a tool from the toolbar above to get started</p>
                         </div>
                     </div>
-                );
-        }
+                )}
+            </div>
+        );
     };
 
     const formatDate = (dateString) => {
@@ -342,7 +348,7 @@ const MyProjects = () => {
                                 {/* Tool Area */}
                                 <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
                                     <div className="absolute inset-0 overflow-auto">
-                                        {renderTool()}
+                                        {renderTools()}
                                     </div>
                                 </div>
                             </>
