@@ -279,8 +279,11 @@ const GooeyNav = ({
             }
           }
           li.active {
-            color: black;
+            color: transparent;
             text-shadow: none;
+          }
+          li.active a {
+            color: transparent;
           }
           li.active::after {
             opacity: 1;
