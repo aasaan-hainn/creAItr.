@@ -6,7 +6,10 @@ import {
     IconCalendar, 
     IconExternalLink, 
     IconX, 
-    IconLoader2
+    IconLoader2,
+    IconCircle,
+    IconCircleCheck,
+    IconClock
 } from "@tabler/icons-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -15,6 +18,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [draggedTaskId, setDraggedTaskId] = useState(null);
     const [newTask, setNewTask] = useState({
         title: '',
         description: '',
@@ -23,6 +27,19 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
         projectId: ''
     });
     const [creating, setCreating] = useState(false);
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'todo':
+                return <IconCircle className="w-5 h-5" />;
+            case 'in-progress':
+                return <IconClock className="w-5 h-5" />;
+            case 'done':
+                return <IconCircleCheck className="w-5 h-5" />;
+            default:
+                return <IconCircle className="w-5 h-5" />;
+        }
+    };
 
     const columns = [
         { id: 'todo', title: 'To Do', color: 'bg-slate-500/10 border-slate-500/20' },
@@ -40,7 +57,6 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            // Data is already sorted by 'order' from backend
             setTasks(data);
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -73,20 +89,22 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
     };
 
     const deleteTask = async (taskId) => {
+        const oldTasks = [...tasks];
+        setTasks(tasks.filter(t => t._id !== taskId));
         try {
             await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setTasks(tasks.filter(t => t._id !== taskId));
         } catch (error) {
             console.error('Error deleting task:', error);
+            setTasks(oldTasks);
         }
     };
 
     const updateTaskStatusAndOrder = async (taskId, newStatus, newOrder) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+            await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,13 +112,9 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                 },
                 body: JSON.stringify({ status: newStatus, order: newOrder })
             });
-            const updatedTask = await response.json();
-            
-            // Re-fetch all tasks to ensure correct ordering is displayed
-            // (Alternatively, update locally but bulk updates might be needed)
-            fetchTasks();
         } catch (error) {
             console.error('Error updating task:', error);
+            fetchTasks(); // Sync back with server on error
         }
     };
 
@@ -116,33 +130,52 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
 
     // Drag and Drop implementation
     const onDragStart = (e, taskId) => {
+        setDraggedTaskId(taskId);
         e.dataTransfer.setData('taskId', taskId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const onDragEnd = () => {
+        setDraggedTaskId(null);
     };
 
     const onDragOver = (e) => {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
     };
 
-    const onDrop = (e, status, targetTaskIndex = -1) => {
+    const onDrop = (e, status, targetIndex = -1) => {
         e.preventDefault();
         const taskId = e.dataTransfer.getData('taskId');
+        setDraggedTaskId(null);
         
-        // Find moving task
         const taskToMove = tasks.find(t => t._id === taskId);
         if (!taskToMove) return;
-
-        // Get all tasks in the target status
-        const columnTasks = tasks.filter(t => t.status === status);
         
-        // Simple reordering logic
-        let newOrder;
-        if (targetTaskIndex === -1 || columnTasks.length === 0) {
-            newOrder = columnTasks.length;
-        } else {
-            newOrder = targetTaskIndex;
-        }
+        // If status didn't change and index is same, do nothing
+        if (taskToMove.status === status && targetIndex === -1) return;
 
-        updateTaskStatusAndOrder(taskId, status, newOrder);
+        // Perform optimistic update
+        const otherTasks = tasks.filter(t => t._id !== taskId);
+        const columnTasks = otherTasks.filter(t => t.status === status);
+        
+        let finalIndex = targetIndex === -1 ? columnTasks.length : targetIndex;
+        
+        const updatedTask = { ...taskToMove, status, order: finalIndex };
+        const newTasksList = [];
+        
+        // Add other columns
+        newTasksList.push(...otherTasks.filter(t => t.status !== status));
+        
+        // Add current column with moved task
+        const updatedColumnTasks = [...columnTasks];
+        updatedColumnTasks.splice(finalIndex, 0, updatedTask);
+        updatedColumnTasks.forEach((t, i) => t.order = i);
+        
+        newTasksList.push(...updatedColumnTasks);
+        
+        setTasks(newTasksList);
+        updateTaskStatusAndOrder(taskId, status, finalIndex);
     };
 
     if (loading) {
@@ -206,6 +239,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             draggable
                                             onDragStart={(e) => onDragStart(e, task._id)}
+                                            onDragEnd={onDragEnd}
                                             onDragOver={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
@@ -215,7 +249,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                                 e.stopPropagation();
                                                 onDrop(e, column.id, index);
                                             }}
-                                            className="p-4 bg-slate-950/80 border-2 border-slate-800 rounded-3xl hover:border-slate-700 transition-all group cursor-grab active:cursor-grabbing shadow-2xl relative overflow-hidden"
+                                            className={`p-4 bg-slate-950/80 border-2 border-slate-800 rounded-3xl hover:border-slate-700 transition-all group cursor-grab active:cursor-grabbing shadow-2xl relative overflow-hidden ${draggedTaskId === task._id ? 'opacity-40 scale-95' : 'opacity-100'}`}
                                             style={{ 
                                                 borderColor: `${getProjectColor(task.projectId)}33`,
                                                 fontFamily: '"Architects Daughter", "Inter", sans-serif'
@@ -225,11 +259,17 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                             <div className="absolute inset-1 border border-white/5 rounded-[22px] pointer-events-none" />
 
                                             <div className="flex items-start gap-4 mb-4 relative z-10">
-                                                {/* Color Circle */}
-                                                <div 
-                                                    className="w-8 h-8 rounded-full shrink-0 shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                                                {/* Status Icon Circle */}
+                                                <motion.div 
+                                                    key={task.status}
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="w-8 h-8 rounded-full shrink-0 shadow-[0_0_15px_rgba(0,0,0,0.5)] flex items-center justify-center text-white/90" 
                                                     style={{ backgroundColor: getProjectColor(task.projectId) }}
-                                                />
+                                                >
+                                                    {getStatusIcon(task.status)}
+                                                </motion.div>
                                                 
                                                 <div className="flex-1">
                                                     <div className="flex items-center justify-between">
@@ -261,8 +301,8 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                                 </div>
                                                 
                                                 <div className="flex-1 p-2 border border-white/10 rounded-xl bg-black/20 overflow-hidden">
-                                                    <p className="text-[11px] font-medium truncate" style={{ color: getProjectColor(task.projectId) }}>
-                                                        Project(reference):{getProjectName(task.projectId).toLowerCase().replace(/ /g, '-')}
+                                                    <p className="text-[11px] font-medium truncate text-center" style={{ color: getProjectColor(task.projectId) }}>
+                                                        {getProjectName(task.projectId).toLowerCase().replace(/ /g, '-')}
                                                     </p>
                                                 </div>
                                             </div>
