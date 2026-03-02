@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+const MotionDiv = motion.div;
 
 const pageVariants = {
   initial: {
@@ -29,16 +30,16 @@ const pageTransition = {
 
 const PageTransition = ({ children }) => {
   return (
-    <motion.div
+    <MotionDiv
       initial="initial"
       animate="in"
       exit="out"
       variants={pageVariants}
       transition={pageTransition}
-      className="w-full h-full"
+      className="w-full h-full will-change-transform will-change-opacity"
     >
       {children}
-    </motion.div>
+    </MotionDiv>
   );
 };
 

@@ -1,14 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { FloatingDock } from '../components/ui/floating-dock';
-import AIChat from '../components/tools/AIChat';
-import VideoEditor from '../components/tools/VideoEditor';
-import PhotoEditor from '../components/tools/PhotoEditor';
-import Canvas from '../components/tools/Canvas';
-import WritingArea from '../components/tools/WritingArea';
-import YouTubeStats from '../components/YouTubeStats';
-import KanbanBoard from '../components/KanbanBoard';
 import { useAuth } from '../context/AuthContext';
 import {
     IconMessageChatbot,
@@ -25,6 +18,19 @@ import {
 } from "@tabler/icons-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const AIChat = lazy(() => import('../components/tools/AIChat'));
+const VideoEditor = lazy(() => import('../components/tools/VideoEditor'));
+const PhotoEditor = lazy(() => import('../components/tools/PhotoEditor'));
+const Canvas = lazy(() => import('../components/tools/Canvas'));
+const WritingArea = lazy(() => import('../components/tools/WritingArea'));
+const YouTubeStats = lazy(() => import('../components/YouTubeStats'));
+const KanbanBoard = lazy(() => import('../components/KanbanBoard'));
+
+const PanelLoader = () => (
+    <div className="flex items-center justify-center h-full text-slate-400">
+        <div className="h-8 w-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
+    </div>
+);
 
 const MyProjects = () => {
     const { isAuthenticated, token, loading: authLoading } = useAuth();
@@ -48,10 +54,10 @@ const MyProjects = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Helper function to get auth headers
-    const getAuthHeaders = () => ({
+    const getAuthHeaders = useCallback(() => ({
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
-    });
+    }), [token]);
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -60,14 +66,7 @@ const MyProjects = () => {
         }
     }, [authLoading, isAuthenticated, navigate]);
 
-    // Fetch projects on mount (only if authenticated)
-    useEffect(() => {
-        if (isAuthenticated && token) {
-            fetchProjects();
-        }
-    }, [isAuthenticated, token]);
-
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/projects`, {
                 headers: getAuthHeaders()
@@ -89,7 +88,14 @@ const MyProjects = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getAuthHeaders, navigate, selectedProject]);
+
+    // Fetch projects on mount (only if authenticated)
+    useEffect(() => {
+        if (isAuthenticated && token) {
+            fetchProjects();
+        }
+    }, [isAuthenticated, token, fetchProjects]);
 
     const createProject = async () => {
         if (!newProjectName.trim()) return;
@@ -135,20 +141,20 @@ const MyProjects = () => {
         }
     };
 
-    const tools = [
+    const tools = useMemo(() => [
         { id: 'ai-chat', title: "AI Chat", icon: <IconMessageChatbot className="h-full w-full text-neutral-500 dark:text-neutral-300" /> },
         { id: 'video-editor', title: "Video Editor", icon: <IconVideo className="h-full w-full text-neutral-500 dark:text-neutral-300" /> },
         { id: 'photo-editor', title: "Photo Editor", icon: <IconPhoto className="h-full w-full text-neutral-500 dark:text-neutral-300" /> },
         { id: 'canvas', title: "Canvas", icon: <IconBrush className="h-full w-full text-neutral-500 dark:text-neutral-300" /> },
         { id: 'writing-area', title: "Writing Area", icon: <IconFileText className="h-full w-full text-neutral-500 dark:text-neutral-300" /> },
-    ];
+    ], []);
 
-    const links = tools.map(tool => ({
+    const links = useMemo(() => tools.map(tool => ({
         title: tool.title,
         icon: tool.icon,
         href: "#",
         onClick: () => setActiveTool(tool.id)
-    }));
+    })), [tools]);
 
     const renderTool = () => {
         if (!selectedProject) {
@@ -302,44 +308,46 @@ const MyProjects = () => {
                 </div>
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col gap-3 border border-white/10 rounded-2xl p-3 bg-white/[0.02] overflow-hidden">
-                    {showStats ? (
-                        /* Stats Section - YouTube Analytics */
-                        <YouTubeStats token={token} />
-                    ) : showKanban ? (
-                        /* Kanban Board Section */
-                        <KanbanBoard 
-                            token={token} 
-                            projects={projects} 
-                            onNavigateToProject={(id) => {
-                                setSelectedProject(id);
-                                setShowKanban(false);
-                                setActiveTool('ai-chat'); // Default to AI Chat when jumping to project
-                            }}
-                        />
-                    ) : (
-                        <>
-                            {/* Project Toolbar */}
-                            <div className="h-16 w-full border border-white/10 rounded-xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-visible group shrink-0">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
-                                <div className="flex items-center justify-center w-full">
-                                    <FloatingDock
-                                        items={links}
-                                        desktopClassName="bg-transparent scale-90"
-                                    />
+                    <Suspense fallback={<PanelLoader />}>
+                        {showStats ? (
+                            /* Stats Section - YouTube Analytics */
+                            <YouTubeStats token={token} />
+                        ) : showKanban ? (
+                            /* Kanban Board Section */
+                            <KanbanBoard
+                                token={token}
+                                projects={projects}
+                                onNavigateToProject={(id) => {
+                                    setSelectedProject(id);
+                                    setShowKanban(false);
+                                    setActiveTool('ai-chat'); // Default to AI Chat when jumping to project
+                                }}
+                            />
+                        ) : (
+                            <>
+                                {/* Project Toolbar */}
+                                <div className="h-16 w-full border border-white/10 rounded-xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-visible group shrink-0">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+                                    <div className="flex items-center justify-center w-full">
+                                        <FloatingDock
+                                            items={links}
+                                            desktopClassName="bg-transparent scale-90"
+                                        />
+                                    </div>
+                                    <span className="absolute top-1 left-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
+                                        Project Toolbar
+                                    </span>
                                 </div>
-                                <span className="absolute top-1 left-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
-                                    Project Toolbar
-                                </span>
-                            </div>
 
-                            {/* Tool Area */}
-                            <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
-                                <div className="absolute inset-0 overflow-auto">
-                                    {renderTool()}
+                                {/* Tool Area */}
+                                <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
+                                    <div className="absolute inset-0 overflow-auto">
+                                        {renderTool()}
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
+                            </>
+                        )}
+                    </Suspense>
                 </div>
             </div>
 

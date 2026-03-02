@@ -1,23 +1,32 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Suspense, lazy } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { AnimatePresence, motion } from "motion/react";
-import Chat from "./pages/Chat";
-import LandingPage from "./pages/LandingPage";
-import MyProjects from "./pages/MyProjects";
-import Auth from "./pages/Auth";
-import Support from "./pages/Support";
-import Settings from "./pages/Settings";
 import PageTransition from "./components/PageTransition";
 import Hyperspeed, { hyperspeedPresets } from "./components/Hyperspeed";
+
+const Chat = lazy(() => import("./pages/Chat"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const MyProjects = lazy(() => import("./pages/MyProjects"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Support = lazy(() => import("./pages/Support"));
+const Settings = lazy(() => import("./pages/Settings"));
+
+const RouteLoader = () => (
+  <div className="min-h-screen w-full bg-black flex items-center justify-center">
+    <div className="h-10 w-10 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
+  </div>
+);
+const MotionDiv = motion.div;
 
 const Background = () => {
   const location = useLocation();
   const isHome = location.pathname === "/";
 
   return (
-    <AnimatePresence>
+      <AnimatePresence>
       {isHome && (
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -25,7 +34,7 @@ const Background = () => {
           className="fixed -top-[20%] left-0 right-0 bottom-0 z-0 pointer-events-none"
         >
           <Hyperspeed effectOptions={hyperspeedPresets.one} />
-        </motion.div>
+        </MotionDiv>
       )}
     </AnimatePresence>
   );
@@ -96,7 +105,9 @@ function App() {
       <div className="bg-black min-h-screen">
         <BrowserRouter>
           <Background />
-          <AnimatedRoutes />
+          <Suspense fallback={<RouteLoader />}>
+            <AnimatedRoutes />
+          </Suspense>
         </BrowserRouter>
       </div>
     </AuthProvider>

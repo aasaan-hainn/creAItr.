@@ -351,10 +351,11 @@ const Hyperspeed = ({
                 this.container = container;
                 this.renderer = new THREE.WebGLRenderer({
                     antialias: false,
-                    alpha: true
+                    alpha: true,
+                    powerPreference: 'high-performance'
                 });
                 this.renderer.setSize(container.offsetWidth, container.offsetHeight, false);
-                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
                 this.composer = new EffectComposer(this.renderer);
                 container.append(this.renderer.domElement);
 
@@ -402,6 +403,8 @@ const Hyperspeed = ({
                 this.speedUpTarget = 0;
                 this.speedUp = 0;
                 this.timeOffset = 0;
+                this.frameInterval = 1 / 60;
+                this.timeSinceLastFrame = 0;
 
                 this.tick = this.tick.bind(this);
                 this.init = this.init.bind(this);
@@ -412,8 +415,10 @@ const Hyperspeed = ({
                 this.onTouchStart = this.onTouchStart.bind(this);
                 this.onTouchEnd = this.onTouchEnd.bind(this);
                 this.onContextMenu = this.onContextMenu.bind(this);
+                this.onWindowResize = this.onWindowResize.bind(this);
+                this.rafId = null;
 
-                window.addEventListener('resize', this.onWindowResize.bind(this));
+                window.addEventListener('resize', this.onWindowResize);
             }
 
             onWindowResize() {
@@ -587,7 +592,12 @@ const Hyperspeed = ({
                     this.scene.clear();
                 }
 
-                window.removeEventListener('resize', this.onWindowResize.bind(this));
+                if (this.rafId) {
+                    cancelAnimationFrame(this.rafId);
+                    this.rafId = null;
+                }
+
+                window.removeEventListener('resize', this.onWindowResize);
                 if (this.container) {
                     this.container.removeEventListener('mousedown', this.onMouseDown);
                     this.container.removeEventListener('mouseup', this.onMouseUp);
@@ -612,9 +622,14 @@ const Hyperspeed = ({
                     this.camera.updateProjectionMatrix();
                 }
                 const delta = this.clock.getDelta();
-                this.render(delta);
-                this.update(delta);
-                requestAnimationFrame(this.tick);
+                this.timeSinceLastFrame += delta;
+                if (this.timeSinceLastFrame >= this.frameInterval) {
+                    const step = this.timeSinceLastFrame;
+                    this.timeSinceLastFrame = 0;
+                    this.render(step);
+                    this.update(step);
+                }
+                this.rafId = requestAnimationFrame(this.tick);
             }
         }
 
@@ -1345,4 +1360,3 @@ export const hyperspeedPresets = {
 };
 
 export default Hyperspeed;
-
