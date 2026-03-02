@@ -36,7 +36,13 @@ const MyProjects = () => {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
+    const [newProjectColor, setNewProjectColor] = useState('#6366f1');
     const [creating, setCreating] = useState(false);
+
+    const projectColors = [
+        '#ef4444', '#f59e0b', '#10b981', '#06b6d4', 
+        '#6366f1', '#8b5cf6', '#ec4899', '#94a3b8'
+    ];
     const [showStats, setShowStats] = useState(false);
     const [showKanban, setShowKanban] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -93,13 +99,17 @@ const MyProjects = () => {
             const response = await fetch(`${API_BASE_URL}/projects`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ name: newProjectName.trim() })
+                body: JSON.stringify({ 
+                    name: newProjectName.trim(),
+                    color: newProjectColor
+                })
             });
             const newProject = await response.json();
             setProjects([newProject, ...projects]);
             setSelectedProject(newProject._id);
             setShowCreateModal(false);
             setNewProjectName('');
+            setNewProjectColor('#6366f1');
         } catch (error) {
             console.error('Error creating project:', error);
         } finally {
@@ -244,16 +254,27 @@ const MyProjects = () => {
                                         }`}
                                 >
                                     {selectedProject === project._id && (
-                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-500 rounded-r-full -ml-[1px]" />
+                                        <div 
+                                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full -ml-[1px]" 
+                                            style={{ backgroundColor: project.color || '#6366f1' }}
+                                        />
                                     )}
                                     <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className={`font-medium text-sm mb-1 ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}>
-                                                {project.name}
-                                            </h3>
-                                            <p className="text-xs text-slate-500">
-                                                {formatDate(project.created)}
-                                            </p>
+                                        <div className="flex items-start gap-3">
+                                            <div 
+                                                className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                                                style={{ backgroundColor: project.color || '#6366f1' }}
+                                            />
+                                            <div>
+                                                <h3 className={`font-medium text-sm mb-0.5 transition-colors ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}
+                                                    style={selectedProject === project._id ? { color: project.color || '#fff' } : {}}
+                                                >
+                                                    {project.name}
+                                                </h3>
+                                                <p className="text-[10px] text-slate-500">
+                                                    {formatDate(project.created)}
+                                                </p>
+                                            </div>
                                         </div>
                                         <button
                                             onClick={(e) => deleteProject(project._id, e)}
@@ -342,9 +363,23 @@ const MyProjects = () => {
                             value={newProjectName}
                             onChange={(e) => setNewProjectName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && createProject()}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 mb-6"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 mb-4"
                             autoFocus
                         />
+
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Project Color</label>
+                            <div className="flex flex-wrap gap-3">
+                                {projectColors.map((color) => (
+                                    <button
+                                        key={color}
+                                        onClick={() => setNewProjectColor(color)}
+                                        className={`w-8 h-8 rounded-full transition-all ${newProjectColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : 'hover:scale-110'}`}
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
 
                         <div className="flex gap-3">
                             <button

@@ -1418,9 +1418,11 @@ def create_project():
     """Create a new project for the logged-in user"""
     data = request.json
     name = data.get("name", "Untitled Project")
+    color = data.get("color", "#6366f1")
 
     project = {
         "name": name,
+        "color": color,
         "userId": request.user_id,
         "created": datetime.datetime.now().isoformat(),
     }
@@ -1447,6 +1449,8 @@ def update_project(project_id):
     update_data = {}
     if "name" in data:
         update_data["name"] = data["name"]
+    if "color" in data:
+        update_data["color"] = data["color"]
 
     if update_data:
         projects_collection.update_one(

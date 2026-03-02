@@ -109,6 +109,11 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
         return project ? project.name : 'No Project';
     };
 
+    const getProjectColor = (projectId) => {
+        const project = projects.find(p => p._id === projectId);
+        return project ? (project.color || '#6366f1') : '#94a3b8';
+    };
+
     // Drag and Drop implementation
     const onDragStart = (e, taskId) => {
         e.dataTransfer.setData('taskId', taskId);
@@ -210,48 +215,56 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                                                 e.stopPropagation();
                                                 onDrop(e, column.id, index);
                                             }}
-                                            className="p-4 bg-slate-900/50 border border-white/10 rounded-xl hover:border-white/20 transition-all group cursor-grab active:cursor-grabbing shadow-xl relative"
+                                            className="p-4 bg-slate-950/80 border-2 border-slate-800 rounded-3xl hover:border-slate-700 transition-all group cursor-grab active:cursor-grabbing shadow-2xl relative overflow-hidden"
+                                            style={{ 
+                                                borderColor: `${getProjectColor(task.projectId)}33`,
+                                                fontFamily: '"Architects Daughter", "Inter", sans-serif'
+                                            }}
                                         >
-                                            {/* Card Number */}
-                                            <div className="absolute top-2 right-10 text-[10px] font-mono text-slate-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                                #{index + 1}
-                                            </div>
+                                            {/* Inner Border Look */}
+                                            <div className="absolute inset-1 border border-white/5 rounded-[22px] pointer-events-none" />
 
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h4 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
-                                                    {task.title}
-                                                </h4>
-                                                <button 
-                                                    onClick={() => deleteTask(task._id)}
-                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all"
-                                                >
-                                                    <IconTrash className="w-4 h-4 text-red-400" />
-                                                </button>
+                                            <div className="flex items-start gap-4 mb-4 relative z-10">
+                                                {/* Color Circle */}
+                                                <div 
+                                                    className="w-8 h-8 rounded-full shrink-0 shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                                                    style={{ backgroundColor: getProjectColor(task.projectId) }}
+                                                />
+                                                
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-base font-medium" style={{ color: getProjectColor(task.projectId) }}>
+                                                            Task : {task.title}
+                                                        </h4>
+                                                        <button 
+                                                            onClick={() => deleteTask(task._id)}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all"
+                                                        >
+                                                            <IconTrash className="w-4 h-4 text-red-400" />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                             
-                                            <p className="text-sm text-slate-400 mb-4 line-clamp-2">
-                                                {task.description}
-                                            </p>
+                                            <div className="mb-6 px-1 relative z-10">
+                                                <p className="text-sm leading-relaxed" style={{ color: `${getProjectColor(task.projectId)}cc` }}>
+                                                    <span className="font-medium mr-1">Description :</span>
+                                                    {task.description || 'no description provided ....'}
+                                                </p>
+                                            </div>
 
-                                            <div className="flex flex-col gap-2">
-                                                {task.dueDate && (
-                                                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                                        <IconCalendar size={14} />
-                                                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-                                                    </div>
-                                                )}
+                                            <div className="flex gap-2 relative z-10">
+                                                <div className="flex-1 p-2 border border-white/10 rounded-xl bg-black/20">
+                                                    <p className="text-[11px] font-medium" style={{ color: getProjectColor(task.projectId) }}>
+                                                        Due date: {task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-') : 'none'}
+                                                    </p>
+                                                </div>
                                                 
-                                                {task.projectId && (
-                                                    <button 
-                                                        onClick={() => onNavigateToProject(task.projectId)}
-                                                        className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mt-1 w-fit"
-                                                    >
-                                                        <IconExternalLink size={14} />
-                                                        <span className="truncate max-w-[150px] font-medium">
-                                                            {getProjectName(task.projectId)}
-                                                        </span>
-                                                    </button>
-                                                )}
+                                                <div className="flex-1 p-2 border border-white/10 rounded-xl bg-black/20 overflow-hidden">
+                                                    <p className="text-[11px] font-medium truncate" style={{ color: getProjectColor(task.projectId) }}>
+                                                        Project(reference):{getProjectName(task.projectId).toLowerCase().replace(/ /g, '-')}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </motion.div>
                                     ))}
