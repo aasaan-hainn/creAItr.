@@ -187,14 +187,14 @@ const MyProjects = () => {
         <div className="h-screen bg-black text-white flex flex-col font-sans selection:bg-indigo-500/30 overflow-hidden">
             <Header />
 
-            <div className="flex flex-1 pt-24 px-6 gap-6 pb-6 overflow-hidden">
+            <div className="flex flex-1 pt-24 px-4 gap-4 pb-4 overflow-hidden">
                 {/* Sidebar */}
-                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pr-0 border-r-0 overflow-hidden' : 'w-64 opacity-100 pr-6 border-r border-white/10'} flex flex-col gap-6 relative transition-all duration-300 ease-in-out`}>
+                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pr-0 border-r-0 overflow-hidden' : 'w-64 opacity-100 pr-4 border-r border-white/10'} flex flex-col gap-4 relative transition-all duration-300 ease-in-out`}>
                     {/* Header Section of Sidebar */}
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                         <button
                             onClick={() => { setShowStats(true); setShowKanban(false); setSelectedProject(null); setActiveTool(null); }}
-                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all group ${showStats
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showStats
                                 ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
                                 : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                                 }`}
@@ -205,7 +205,7 @@ const MyProjects = () => {
 
                         <button
                             onClick={() => { setShowKanban(true); setShowStats(false); setSelectedProject(null); setActiveTool(null); }}
-                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all group ${showKanban
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showKanban
                                 ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
                                 : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                                 }`}
@@ -216,13 +216,13 @@ const MyProjects = () => {
 
                         <button
                             onClick={() => { setShowCreateModal(true); setShowStats(false); setShowKanban(false); }}
-                            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
                         >
                             <IconPlus className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300" />
                             <span className="font-semibold text-sm">New Project</span>
                         </button>
 
-                        <div className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-2">
+                        <div className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">
                             Created Projects
                         </div>
                     </div>
@@ -238,7 +238,7 @@ const MyProjects = () => {
                                 <div
                                     key={project._id}
                                     onClick={() => { setSelectedProject(project._id); setShowStats(false); setShowKanban(false); }}
-                                    className={`p-4 rounded-xl border transition-all cursor-pointer relative group ${selectedProject === project._id
+                                    className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedProject === project._id
                                         ? 'bg-white/5 border-indigo-500/50'
                                         : 'border-transparent hover:bg-white/5 hover:border-white/10'
                                         }`}
@@ -280,7 +280,7 @@ const MyProjects = () => {
                     </button>
                 </div>
                 {/* Main Content */}
-                <div className="flex-1 flex flex-col gap-4 border border-white/10 rounded-3xl p-4 bg-white/[0.02] overflow-hidden">
+                <div className="flex-1 flex flex-col gap-3 border border-white/10 rounded-2xl p-3 bg-white/[0.02] overflow-hidden">
                     {showStats ? (
                         /* Stats Section - YouTube Analytics */
                         <YouTubeStats token={token} />
@@ -298,21 +298,21 @@ const MyProjects = () => {
                     ) : (
                         <>
                             {/* Project Toolbar */}
-                            <div className="h-20 w-full border border-white/10 rounded-2xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-visible group shrink-0">
+                            <div className="h-16 w-full border border-white/10 rounded-xl flex items-center justify-center bg-black/40 backdrop-blur-sm relative overflow-visible group shrink-0">
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
                                 <div className="flex items-center justify-center w-full">
                                     <FloatingDock
                                         items={links}
-                                        desktopClassName="bg-transparent"
+                                        desktopClassName="bg-transparent scale-90"
                                     />
                                 </div>
-                                <span className="absolute top-2 left-4 text-[10px] font-mono text-slate-600 uppercase tracking-widest">
+                                <span className="absolute top-1 left-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
                                     Project Toolbar
                                 </span>
                             </div>
 
                             {/* Tool Area */}
-                            <div className="flex-1 flex flex-col rounded-2xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
+                            <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
                                 <div className="absolute inset-0 overflow-auto">
                                     {renderTool()}
                                 </div>

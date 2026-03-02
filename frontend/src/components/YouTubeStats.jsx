@@ -575,19 +575,19 @@ STRICT FORMATTING RULES:
     }
 
     return (
-        <div className="flex-1 flex flex-col p-6 overflow-y-auto h-full">
-            <div className="max-w-6xl mx-auto w-full space-y-8">
+        <div className="flex-1 flex flex-col p-4 overflow-y-auto h-full">
+            <div className="max-w-6xl mx-auto w-full space-y-4">
                 {/* Header */}
-                <div className="flex items-center gap-3">
-                    <IconBrandYoutube className="w-8 h-8 text-red-500" />
-                    <h2 className="text-2xl font-bold text-white">YouTube Analytics Dashboard</h2>
+                <div className="flex items-center gap-2">
+                    <IconBrandYoutube className="w-6 h-6 text-red-500" />
+                    <h2 className="text-xl font-bold text-white">YouTube Analytics Dashboard</h2>
                 </div>
 
                 {/* Channel Connection / Stats Section */}
                 {!channelStats ? (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                         <h3 className="text-lg font-semibold text-white mb-2">Connect Your Channel</h3>
-                        <p className="text-slate-400 text-sm mb-4">
+                        <p className="text-slate-400 text-sm mb-3">
                             Enter your YouTube Channel ID (e.g., UC...) to fetch real-time stats.
                         </p>
                         <div className="flex gap-3 max-w-xl">
@@ -596,12 +596,12 @@ STRICT FORMATTING RULES:
                                 placeholder="Channel ID (starts with UC...)"
                                 value={channelInput}
                                 onChange={(e) => setChannelInput(e.target.value)}
-                                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
                             />
                             <button
                                 onClick={saveChannelId}
                                 disabled={isSavingChannel || !channelInput.trim()}
-                                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                             >
                                 {isSavingChannel ? <IconLoader2 className="animate-spin w-4 h4" /> : 'Connect'}
                             </button>
@@ -613,51 +613,51 @@ STRICT FORMATTING RULES:
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         {/* Profile Card */}
-                        <div className="md:col-span-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+                        <div className="md:col-span-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center">
                             {channelStats.thumbnail && (
                                 <img
                                     src={channelStats.thumbnail}
                                     alt={channelStats.title}
-                                    className="w-20 h-20 rounded-full mb-3 border-2 border-red-500"
+                                    className="w-16 h-16 rounded-full mb-2 border-2 border-red-500"
                                 />
                             )}
-                            <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">{channelStats.title}</h3>
-                            <p className="text-xs text-slate-400 font-mono mb-3">{channelStats.channelId}</p>
-                            <div className="px-3 py-1 bg-red-500/20 text-red-300 text-xs rounded-full border border-red-500/30">
+                            <h3 className="text-base font-bold text-white mb-0.5 line-clamp-1">{channelStats.title}</h3>
+                            <p className="text-[10px] text-slate-400 font-mono mb-2">{channelStats.channelId}</p>
+                            <div className="px-2 py-0.5 bg-red-500/20 text-red-300 text-[10px] rounded-full border border-red-500/30">
                                 Live Data
                             </div>
                         </div>
 
                         {/* Stat Cards */}
-                        <div className="md:col-span-3 grid grid-cols-3 gap-4">
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col justify-between">
+                        <div className="md:col-span-3 grid grid-cols-3 gap-3">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
                                 <div className="flex items-start justify-between">
-                                    <span className="text-slate-400 text-sm">Subscribers</span>
-                                    <IconUsers className="w-5 h-5 text-indigo-400" />
+                                    <span className="text-slate-400 text-xs">Subscribers</span>
+                                    <IconUsers className="w-4 h-4 text-indigo-400" />
                                 </div>
-                                <div className="text-2xl font-bold text-white mt-2">
+                                <div className="text-xl font-bold text-white mt-1">
                                     {channelStats.subscriberHidden ? 'Hidden' : formatNumber(channelStats.subscribers)}
                                 </div>
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col justify-between">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
                                 <div className="flex items-start justify-between">
-                                    <span className="text-slate-400 text-sm">Total Views</span>
-                                    <IconEye className="w-5 h-5 text-emerald-400" />
+                                    <span className="text-slate-400 text-xs">Total Views</span>
+                                    <IconEye className="w-4 h-4 text-emerald-400" />
                                 </div>
-                                <div className="text-2xl font-bold text-white mt-2">
+                                <div className="text-xl font-bold text-white mt-1">
                                     {formatNumber(channelStats.views)}
                                 </div>
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col justify-between">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
                                 <div className="flex items-start justify-between">
-                                    <span className="text-slate-400 text-sm">Total Videos</span>
-                                    <IconVideo className="w-5 h-5 text-purple-400" />
+                                    <span className="text-slate-400 text-xs">Total Videos</span>
+                                    <IconVideo className="w-4 h-4 text-purple-400" />
                                 </div>
-                                <div className="text-2xl font-bold text-white mt-2">
+                                <div className="text-xl font-bold text-white mt-1">
                                     {formatNumber(channelStats.videoCount)}
                                 </div>
                             </div>
@@ -666,29 +666,29 @@ STRICT FORMATTING RULES:
                 )}
 
                 {/* Filter & Charts Section */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <IconCalendar className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                            <IconCalendar className="w-4 h-4 text-indigo-400" />
                             Growth Analytics
                         </h3>
                         <DateRangeSelector />
                     </div>
 
                     {!analyticsConnected ? (
-                        <div className="flex flex-col items-center justify-center p-12 border border-white/10 rounded-xl bg-white/5 text-slate-400 text-center">
-                            <IconBrandYoutube className="w-12 h-12 mb-4 text-red-500/50" />
-                            <h4 className="text-lg font-medium text-white mb-2">Connect Analytics to See Growth</h4>
-                            <p className="max-w-md text-sm">
+                        <div className="flex flex-col items-center justify-center p-8 border border-white/10 rounded-xl bg-white/5 text-slate-400 text-center">
+                            <IconBrandYoutube className="w-10 h-10 mb-3 text-red-500/50" />
+                            <h4 className="text-base font-medium text-white mb-1">Connect Analytics to See Growth</h4>
+                            <p className="max-w-md text-xs">
                                 To view detailed daily views, watch time, and subscriber growth, you need to grant permission to access your YouTube Analytics data.
                             </p>
                         </div>
                     ) : analyticsData ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Views Chart */}
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px]">
-                                <h3 className="text-lg font-semibold text-white mb-4">Daily Views</h3>
-                                <div className="h-[280px]">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 h-[280px]">
+                                <h3 className="text-sm font-semibold text-white mb-2">Daily Views</h3>
+                                <div className="h-[210px]">
                                     <Line
                                         data={{
                                             labels: analyticsData.labels,
@@ -700,9 +700,9 @@ STRICT FORMATTING RULES:
                             </div>
 
                             {/* Watch Time Chart */}
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px]">
-                                <h3 className="text-lg font-semibold text-white mb-4">Watch Time (Minutes)</h3>
-                                <div className="h-[280px]">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 h-[280px]">
+                                <h3 className="text-sm font-semibold text-white mb-2">Watch Time (Minutes)</h3>
+                                <div className="h-[210px]">
                                     <Line
                                         data={{
                                             labels: analyticsData.labels,
@@ -714,9 +714,9 @@ STRICT FORMATTING RULES:
                             </div>
 
                             {/* Subscribers Chart */}
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 h-[350px] lg:col-span-2">
-                                <h3 className="text-lg font-semibold text-white mb-4">Net Subscribers Gained</h3>
-                                <div className="h-[280px]">
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 h-[280px] lg:col-span-2">
+                                <h3 className="text-sm font-semibold text-white mb-2">Net Subscribers Gained</h3>
+                                <div className="h-[210px]">
                                     <Bar
                                         data={{
                                             labels: analyticsData.labels,
@@ -727,18 +727,18 @@ STRICT FORMATTING RULES:
                                 </div>
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-6 lg:col-span-2">
-                                <div className="flex items-center justify-between gap-3 mb-4">
-                                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                        <IconSparkles className="w-5 h-5 text-indigo-400" />
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 lg:col-span-2">
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                                        <IconSparkles className="w-4 h-4 text-indigo-400" />
                                         AI Summary
                                     </h3>
                                     <button
                                         type="button"
                                         onClick={() => setIsAskAiOpen((prev) => !prev)}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-400/40 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 shadow-[0_0_14px_rgba(99,102,241,0.35)] transition-all flex items-center gap-1.5"
+                                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-indigo-400/40 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5"
                                     >
-                                        <IconMessageCircle className="w-4 h-4" />
+                                        <IconMessageCircle className="w-3.5 h-3.5" />
                                         {isAskAiOpen ? 'Hide Ask AI' : 'Ask AI'}
                                     </button>
                                 </div>
