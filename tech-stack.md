@@ -18,7 +18,7 @@
 - **tailwind-merge**: Utility to merge Tailwind CSS classes without conflicts.
 
 ### Animation & 3D
-- **Motion**: Animation library (formerly Framer Motion).
+- **Motion**: v12 - Animation library for production-ready effects.
 - **Three.js**: 3D library.
 - **@react-three/fiber**: React renderer for Three.js.
 - **TSParticles**: Particle system for backgrounds and effects.
@@ -30,6 +30,7 @@
 - **React Player**: Video player component.
 - **React Quill**: Rich text editor.
 - **Excalidraw**: Virtual whiteboard component.
+- **@tabler/icons-react**: Comprehensive icon library.
 
 ---
 

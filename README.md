@@ -33,10 +33,11 @@ creAItr. is a full-stack AI-powered creative platform that combines large langua
 - **Text-to-Speech** with Edge-TTS integration
 - Maintains conversation history and context awareness
 
-### 📁 Project Management
-- Create, organize, and manage multiple projects
-- Project-specific workspaces with persistent data
-- User-owned project isolation for privacy
+### 📁 Project Management & Kanban
+- **Project Workspaces**: Create, organize, and manage multiple projects
+- **Kanban Board**: Full drag-and-drop task board with To Do, In Progress, and Done states
+- **Progress Tracking**: Real-time progress bars and task completion stats for every project
+- **Global Overview**: Unified board to manage all project milestones in one place
 
 ### 🛠️ Creative Tools
 | Tool | Description |
@@ -46,6 +47,7 @@ creAItr. is a full-stack AI-powered creative platform that combines large langua
 | 🖼️ **Photo Editor** | Image editing and manipulation tools |
 | 🎨 **Canvas** | Drawing and sketching with Excalidraw |
 | ✍️ **Writing Area** | Rich text editor with React Quill |
+| 🔥 **Trend Spotter** | AI discovery tool for viral content ideas |
 
 ### 📚 Knowledge Base
 - **RSS & NewsAPI** integration for real-time news ingestion
@@ -188,13 +190,14 @@ Navigate to `http://localhost:5173` to access creAItr.
 | `POST` | `/update-news` | Refresh knowledge base |
 | `POST` | `/tts` | Text-to-speech conversion |
 
-### Projects
+### Projects & Kanban
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/projects` | Get user projects |
+| `GET` | `/projects` | Get user projects with task stats |
 | `POST` | `/projects` | Create new project |
-| `PUT` | `/projects/:id` | Update project |
-| `DELETE` | `/projects/:id` | Delete project |
+| `GET` | `/tasks` | Get all project tasks |
+| `POST` | `/tasks` | Create new Kanban card |
+| `PUT` | `/tasks/:id` | Update task status or order |
 
 ### Workspace Tools
 | Method | Endpoint | Description |

@@ -37,13 +37,15 @@ creAItr. is a full-stack AI-powered creative platform that combines large langua
 - **Reasoning Display**: Shows AI thinking process
 - **Text-to-Speech**: Edge-TTS integration for audio playback
 
-### 3. Project Management
+### 3. Project Management & Kanban
 - Create, read, update, delete projects
-- Project-specific workspaces
-- Persistent data storage per project
-- User-owned project isolation
+- **Kanban Board**: Drag-and-drop task management (To Do, In Progress, Done)
+- **Task Statistics**: Automated calculation of project completion percentage
+- **Progress Tracking**: Visual progress bars in project list and global board
+- Project-specific workspaces with persistent data storage
 
 ### 4. Creative Tools
+- **Trend Spotter**: AI-driven trend discovery with one-click project/task generation
 - **AI Chat**: Integrated chat within projects
 - **Video Editor**: Video editing capabilities with Cloudinary integration
 - **Photo Editor**: Image editing tools
@@ -54,6 +56,7 @@ creAItr. is a full-stack AI-powered creative platform that combines large langua
 - **News Ingestion**: RSS feeds and NewsAPI integration
 - **PDF Processing**: Local PDF document ingestion
 - **Vector Storage**: ChromaDB for semantic search
+- **Idea Generation**: Auto-generate Kanban tasks from trending news via LLM
 - **Real-time Updates**: Manual knowledge base refresh
 
 ### 6. YouTube Analytics (Optional Feature)
@@ -152,10 +155,17 @@ PORT=5000
 - `POST /tts` - Text-to-speech conversion
 
 ### Project Management
-- `GET /projects` - Get user projects
+- `GET /projects` - Get user projects with task statistics (`totalTasks`, `completedTasks`, `percentComplete`)
 - `POST /projects` - Create new project
 - `PUT /projects/:id` - Update project
 - `DELETE /projects/:id` - Delete project
+
+### Kanban & Tasks
+- `GET /tasks` - Get all user tasks
+- `POST /tasks` - Create new task (linked to project or general)
+- `PUT /tasks/:id` - Update task status, order, or content
+- `DELETE /tasks/:id` - Delete task
+- `POST /trends/generate-idea` - Generate a Kanban task from a trending topic
 
 ### Workspace Tools
 - `GET/PUT /projects/:id/workspace/canvas` - Canvas data
