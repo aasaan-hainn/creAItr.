@@ -435,15 +435,33 @@ def upload_profile_picture():
 def delete_account():
     """Archive and delete user account and all associated data"""
     from mongodb import db, channel_stats_collection
+
+    required_confirmation_text = "I Am Sure That I Am Responsible To Delete My Account"
     
     user_id = request.user_id
     archived_users_collection = db["archived_users"]
 
     try:
+        data = request.get_json(silent=True) or {}
+        confirmation_text = (data.get("confirmationText") or "").strip()
+        password = data.get("password")
+
         # 1. Fetch all user data
         user = users_collection.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "User not found"}), 404
+
+        if confirmation_text != required_confirmation_text:
+            return jsonify({"error": "Invalid confirmation statement"}), 400
+
+        if not user.get("password"):
+            return jsonify({"error": "This account has no password. Please set a password in Account settings before deleting."}), 400
+
+        if not password:
+            return jsonify({"error": "Password is required"}), 400
+
+        if not verify_password(password, user["password"]):
+            return jsonify({"error": "Invalid password"}), 401
 
         projects = list(projects_collection.find({"userId": user_id}))
         tasks = list(tasks_collection.find({"userId": user_id}))
@@ -462,7 +480,11 @@ def delete_account():
                 "channel_stats": stats
             },
             "deletedAt": datetime.datetime.now().isoformat(),
-            "reason": "User requested account deletion"
+            "reason": "User requested account deletion",
+            "deletionConfirmation": {
+                "statement": required_confirmation_text,
+                "verifiedPassword": True
+            }
         }
 
         # 3. Insert into archive collection

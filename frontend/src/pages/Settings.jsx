@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const DELETE_ACCOUNT_CONFIRMATION_TEXT = "I Am Sure That I Am Responsible To Delete My Account";
 
 // Settings navigation items
 const settingsSections = [
@@ -683,9 +684,18 @@ const AppearanceSection = () => {
 // Privacy Section
 const PrivacySection = ({ onLogout }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+    const [deletePassword, setDeletePassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [error, setError] = useState('');
+
+    const closeDeleteModal = () => {
+        if (isDeleting) return;
+        setShowDeleteConfirm(false);
+        setDeleteConfirmationText('');
+        setDeletePassword('');
+    };
 
     const handleExportData = async () => {
         setIsExporting(true);
@@ -720,6 +730,16 @@ const PrivacySection = ({ onLogout }) => {
     };
 
     const handleDeleteAccount = async () => {
+        if (deleteConfirmationText.trim() !== DELETE_ACCOUNT_CONFIRMATION_TEXT) {
+            setError('Please type the exact confirmation statement.');
+            return;
+        }
+
+        if (!deletePassword.trim()) {
+            setError('Please re-enter your password to continue.');
+            return;
+        }
+
         setIsDeleting(true);
         setError('');
         try {
@@ -727,8 +747,13 @@ const PrivacySection = ({ onLogout }) => {
             const response = await fetch(`${API_BASE_URL}/auth/account`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    confirmationText: deleteConfirmationText,
+                    password: deletePassword
+                })
             });
 
             if (response.ok) {
@@ -795,44 +820,105 @@ const PrivacySection = ({ onLogout }) => {
                         </div>
                     )}
 
-                    {!showDeleteConfirm ? (
-                        <button
-                            onClick={() => setShowDeleteConfirm(true)}
-                            className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Delete Account
-                        </button>
-                    ) : (
-                        <div className="space-y-3">
-                            <p className="text-red-400 text-sm font-medium">
-                                Are you absolutely sure? This will permanently delete:
-                            </p>
-                            <ul className="text-sm text-slate-400 list-disc list-inside space-y-1">
-                                <li>All your projects and their contents</li>
-                                <li>All chat histories</li>
-                                <li>Your account and profile data</li>
-                            </ul>
-                            <div className="flex items-center gap-3 pt-2">
-                                <button 
-                                    onClick={handleDeleteAccount}
-                                    disabled={isDeleting}
-                                    className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all flex items-center gap-2"
-                                >
-                                    {isDeleting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    Yes, Delete Everything
-                                </button>
-                                <button
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <button
+                        onClick={() => {
+                            setError('');
+                            setShowDeleteConfirm(true);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all flex items-center gap-2"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Account
+                    </button>
                 </div>
             </CardSpotlight>
+
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center">
+                    <div className="w-full max-w-lg rounded-2xl border border-red-500/30 bg-slate-950 p-6">
+                        <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5" />
+                            Confirm Account Deletion
+                        </h3>
+                        <p className="text-sm text-slate-400 mb-4">
+                            This action is permanent. To continue, type the confirmation statement and re-enter your password.
+                        </p>
+
+                        <ul className="text-sm text-slate-400 list-disc list-inside space-y-1 mb-4">
+                            <li>All your projects and their contents</li>
+                            <li>All chat histories</li>
+                            <li>Your account and profile data</li>
+                        </ul>
+
+                        {error && (
+                            <div className="mb-4 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wide">
+                                    Type this statement exactly
+                                </label>
+                                <p className="mb-2 rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-xs text-slate-300 font-mono break-words">
+                                    {DELETE_ACCOUNT_CONFIRMATION_TEXT}
+                                </p>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmationText}
+                                    onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                                    onPaste={(e) => {
+                                        e.preventDefault();
+                                        setError('Pasting is disabled. Please type the statement manually.');
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setError('Drag and drop is disabled. Please type the statement manually.');
+                                    }}
+                                    placeholder="Enter the statement"
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                                    disabled={isDeleting}
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wide">
+                                    Re-enter password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => setDeletePassword(e.target.value)}
+                                    placeholder="Your password"
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                                    disabled={isDeleting}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-5">
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={isDeleting}
+                                className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all flex items-center gap-2 disabled:opacity-60"
+                            >
+                                {isDeleting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                Confirm Delete
+                            </button>
+                            <button
+                                onClick={closeDeleteModal}
+                                disabled={isDeleting}
+                                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
