@@ -962,6 +962,120 @@ def get_analytics_range():
         return jsonify({"error": f"Failed to fetch analytics: {str(e)}"}), 500
 
 
+# --- TRENDS & IDEATION ROUTES ---
+
+
+@app.route("/trends", methods=["GET"])
+@token_required
+def get_trends():
+    """Fetch trending topics from news and stored data"""
+    try:
+        # Get trending news objects from NewsAPI
+        all_trends = fetch_newsapi_data()
+        
+        # If NewsAPI fails or returns few, try Google News RSS
+        if len(all_trends) < 3:
+            rss_news = fetch_and_store_news()
+            all_trends.extend(rss_news)
+            
+        # Deduplicate by title
+        seen_titles = set()
+        unique_trends = []
+        for trend in all_trends:
+            title = trend.get("title")
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                unique_trends.append(trend)
+        
+        # Limit
+        trends = unique_trends[:6]
+        
+        return jsonify({"trends": trends})
+    except Exception as e:
+        print(f"Error fetching trends: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/trends/generate-idea", methods=["POST"])
+@token_required
+def generate_trend_idea():
+    """Generate a video idea from a trend and add it to the Kanban board"""
+    data = request.json
+    trend = data.get("trend")
+    
+    if not trend:
+        return jsonify({"error": "Trend is required"}), 400
+
+    try:
+        # 1. Generate Idea using LLM
+        system_prompt = """You are a creative content strategist for YouTube.
+Given a trending news topic, generate a catchy video title and a brief 2-sentence strategy (description) for a video about it.
+Return ONLY valid JSON.
+
+Schema:
+{
+  "title": "Catchy YouTube Title",
+  "description": "2-sentence strategy: how to approach this topic to make it viral."
+}"""
+
+        completion = nvidia_client.chat.completions.create(
+            model=config.MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Trending Topic: {trend}"},
+            ],
+            temperature=0.7,
+            max_tokens=200,
+        )
+
+        idea_raw = completion.choices[0].message.content
+        
+        # Simple extraction
+        import re
+        json_match = re.search(r"(\{.*\})", idea_raw, re.DOTALL)
+        if json_match:
+            idea = json.loads(json_match.group(1))
+        else:
+            # Fallback if AI fails to return JSON
+            idea = {
+                "title": f"New Video: {trend}",
+                "description": f"A deep dive into {trend} and why it's trending today."
+            }
+
+        # 2. Add to Kanban Board (To Do column)
+        status = "todo"
+        last_task = tasks_collection.find_one(
+            {"userId": request.user_id, "status": status},
+            sort=[("order", -1)]
+        )
+        new_order = (last_task["order"] + 1) if last_task else 0
+
+        task = {
+            "userId": request.user_id,
+            "title": idea["title"],
+            "description": idea["description"],
+            "status": status,
+            "dueDate": (datetime.datetime.now() + datetime.timedelta(days=3)).strftime("%Y-%m-%d"),
+            "projectId": "", # General task
+            "order": new_order,
+            "createdAt": datetime.datetime.now().isoformat(),
+            "source": "trend_spotter",
+            "trendSource": trend
+        }
+        
+        result = tasks_collection.insert_one(task)
+        task["_id"] = str(result.inserted_id)
+
+        return jsonify({
+            "message": "Video idea generated and added to To-Do!",
+            "task": task
+        }), 201
+
+    except Exception as e:
+        print(f"Error generating trend idea: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/analytics/summary", methods=["GET"])
 @token_required
 def get_analytics_summary():

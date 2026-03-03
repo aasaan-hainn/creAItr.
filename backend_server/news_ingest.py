@@ -22,16 +22,22 @@ def fetch_and_store_news():
     today_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
     # Get top 5
-    for entry in feed.entries[:5]:
+    for idx, entry in enumerate(feed.entries[:5]):
         text = f"[Published: {today_str}] Title: {entry.title}. Summary: {entry.summary}"
         # Store
-        unique_id = f"news_{int(time.time())}_{feed.entries.index(entry)}"
+        unique_id = f"news_{int(time.time())}_{idx}"
         collection.upsert(
             ids=[unique_id], 
             documents=[text],
             metadatas=[{"type": "news", "title": entry.title, "date": today_str}]
         )
-        news_data.append(entry.title)
+        news_data.append({
+            "title": entry.title,
+            "description": entry.summary,
+            "content": entry.summary,
+            "source": "Google News",
+            "publishedAt": today_str
+        })
 
     return news_data
 
@@ -73,7 +79,6 @@ def fetch_newsapi_data():
         print(f"Error fetching national news: {e}")
 
     # 3. Store in ChromaDB
-    titles = []
     for idx, article in enumerate(all_articles):
         # Format Date
         pub_date = article['publishedAt'][:10] if article['publishedAt'] else datetime.datetime.now().strftime("%Y-%m-%d")
@@ -93,6 +98,5 @@ def fetch_newsapi_data():
             documents=[full_text],
             metadatas=[{"type": "news", "title": article['title'], "date": pub_date}]
         )
-        titles.append(article['title'])
     
-    return titles
+    return all_articles

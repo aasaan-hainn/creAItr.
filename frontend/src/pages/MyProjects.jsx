@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { FloatingDock } from '../components/ui/floating-dock';
@@ -14,7 +15,13 @@ import {
     IconTrash,
     IconX,
     IconChartBar,
-    IconLayoutKanban
+    IconLayoutKanban,
+    IconFlame,
+    IconSparkles,
+    IconChevronDown,
+    IconChevronUp,
+    IconExternalLink,
+    IconNews
 } from "@tabler/icons-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -31,6 +38,194 @@ const PanelLoader = () => (
         <div className="h-8 w-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
     </div>
 );
+
+const TrendSpotter = ({ token, onCreateProject }) => {
+    const [trends, setTrends] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [generating, setGenerating] = useState(null);
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [selectedTrend, setSelectedTrend] = useState(null);
+
+    const stripHtml = (html) => {
+        if (!html) return "";
+        return html.replace(/<[^>]*>?/gm, '');
+    };
+
+    const fetchTrends = useCallback(async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/trends`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            setTrends(data.trends || []);
+        } catch (error) {
+            console.error('Error fetching trends:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        fetchTrends();
+    }, [fetchTrends]);
+
+    const handleCreateProject = async (e, trend) => {
+        if (e) e.stopPropagation();
+        setGenerating(trend.title);
+        try {
+            if (onCreateProject) {
+                await onCreateProject(trend.title);
+                setSelectedTrend(null);
+            }
+        } catch (error) {
+            console.error('Error generating project from trend:', error);
+        } finally {
+            setGenerating(null);
+        }
+    };
+
+    if (loading) return (
+        <div className="p-4 rounded-xl bg-white/5 border border-white/10 animate-pulse">
+            <div className="h-4 w-32 bg-white/10 rounded mb-4" />
+            <div className="space-y-3">
+                <div className="h-10 w-full bg-white/10 rounded" />
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 via-transparent to-purple-500/10 border border-white/10 shadow-xl backdrop-blur-sm overflow-hidden transition-all duration-300">
+                <button 
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-orange-500/20">
+                            <IconFlame className="w-4 h-4 text-orange-400" />
+                        </div>
+                        <h3 className="font-bold text-sm text-white tracking-tight">Trend Spotter</h3>
+                    </div>
+                    {isCollapsed ? (
+                        <IconChevronUp className="w-4 h-4 text-slate-500" />
+                    ) : (
+                        <IconChevronDown className="w-4 h-4 text-slate-500" />
+                    )}
+                </button>
+                
+                {!isCollapsed && (
+                    <div className="px-4 pb-4 space-y-3">
+                        {trends.map((trend, i) => (
+                            <div 
+                                key={i} 
+                                onClick={() => setSelectedTrend(trend)}
+                                className="group relative flex flex-col gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 cursor-pointer"
+                            >
+                                <p className="text-xs font-medium text-slate-300 line-clamp-2 leading-relaxed group-hover:text-white transition-colors">
+                                    {trend.title}
+                                </p>
+                                <div className="flex items-center justify-between mt-1">
+                                    <span className="text-[9px] text-slate-500 font-mono uppercase tracking-tighter">
+                                        {trend.source || 'News'}
+                                    </span>
+                                    <button
+                                        onClick={(e) => handleCreateProject(e, trend)}
+                                        disabled={generating === trend.title}
+                                        className="flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white transition-all text-[9px] font-bold text-indigo-300 disabled:opacity-50"
+                                    >
+                                        {generating === trend.title ? (
+                                            <div className="w-2.5 h-2.5 border border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <IconSparkles className="w-2.5 h-2.5" />
+                                        )}
+                                        {generating === trend.title ? '...' : 'Create'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        
+                        {trends.length === 0 && (
+                            <p className="text-[10px] text-slate-500 text-center py-2">No trends found right now</p>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Trend Detail Modal */}
+            <AnimatePresence mode="wait">
+                {selectedTrend && (
+                    <div 
+                        className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4"
+                        onClick={() => setSelectedTrend(null)}
+                    >
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-slate-900 border border-white/10 rounded-3xl p-8 w-full max-w-2xl relative shadow-2xl overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -mr-32 -mt-32" />
+                            
+                            <button
+                                onClick={() => setSelectedTrend(null)}
+                                className="absolute top-6 right-6 p-2 hover:bg-white/5 rounded-full border border-white/10 transition-colors z-[110]"
+                            >
+                                <IconX className="w-5 h-5 text-slate-400" />
+                            </button>
+
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 rounded-xl bg-orange-500/20">
+                                        <IconFlame className="w-6 h-6 text-orange-400" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] mb-1">Trending Story</div>
+                                        <span className="text-xs text-slate-500">{selectedTrend.source} • {selectedTrend.publishedAt}</span>
+                                    </div>
+                                </div>
+
+                                <h2 className="text-2xl md:text-3xl font-bold text-white mb-6 leading-tight">
+                                    {selectedTrend.title}
+                                </h2>
+
+                                <div className="space-y-6 max-h-[40vh] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent text-slate-300 leading-relaxed">
+                                    <p className="text-lg font-medium text-slate-200">
+                                        {stripHtml(selectedTrend.description)}
+                                    </p>
+                                    <div className="p-6 rounded-2xl bg-white/5 border border-white/5">
+                                        <div className="flex items-center gap-2 mb-3 text-indigo-400">
+                                            <IconNews className="w-4 h-4" />
+                                            <span className="text-xs font-bold uppercase tracking-widest">Story Context</span>
+                                        </div>
+                                        <p className="text-sm">
+                                            {stripHtml(selectedTrend.content) || "Full story content available on source site."}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-10">
+                                    <button
+                                        onClick={(e) => handleCreateProject(e, selectedTrend)}
+                                        disabled={generating === selectedTrend.title}
+                                        className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-50"
+                                    >
+                                        {generating === selectedTrend.title ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <IconSparkles className="w-5 h-5" />
+                                        )}
+                                        {generating === selectedTrend.title ? 'Creating Project...' : 'Auto-Generate Video Project'}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </>
+    );
+};
 
 const MyProjects = () => {
     const { isAuthenticated, token, loading: authLoading } = useAuth();
@@ -99,23 +294,27 @@ const MyProjects = () => {
 
     const createProject = async () => {
         if (!newProjectName.trim()) return;
+        await handleCreateProjectByName(newProjectName.trim(), newProjectColor);
+        setShowCreateModal(false);
+        setNewProjectName('');
+        setNewProjectColor('#6366f1');
+    };
 
+    const handleCreateProjectByName = async (name, color = '#6366f1') => {
         setCreating(true);
         try {
             const response = await fetch(`${API_BASE_URL}/projects`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ 
-                    name: newProjectName.trim(),
-                    color: newProjectColor
+                    name: name,
+                    color: color
                 })
             });
             const newProject = await response.json();
-            setProjects([newProject, ...projects]);
+            setProjects(prev => [newProject, ...prev]);
             setSelectedProject(newProject._id);
-            setShowCreateModal(false);
-            setNewProjectName('');
-            setNewProjectColor('#6366f1');
+            return newProject;
         } catch (error) {
             console.error('Error creating project:', error);
         } finally {
@@ -300,6 +499,10 @@ const MyProjects = () => {
                         )}
                     </div>
 
+                    {/* Trend Spotter Section */}
+                    <div className="mt-auto pt-4 border-t border-white/5">
+                        <TrendSpotter token={token} onCreateProject={handleCreateProjectByName} />
+                    </div>
                 </div>
 
                 {/* Collapse Button - Outside sidebar so it's always visible */}
