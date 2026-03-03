@@ -477,14 +477,27 @@ const MyProjects = () => {
                                                 style={{ backgroundColor: project.color || '#6366f1' }}
                                             />
                                             <div>
-                                                <h3 className={`font-medium text-sm mb-0.5 transition-colors ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}
+                                                <h3 className={`font-medium text-sm mb-1 transition-colors ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}
                                                     style={selectedProject === project._id ? { color: project.color || '#fff' } : {}}
                                                 >
                                                     {project.name}
                                                 </h3>
-                                                <p className="text-[10px] text-slate-500">
-                                                    {formatDate(project.created)}
-                                                </p>
+                                                {/* Project Progress Bar */}
+                                                <div className="mt-3 space-y-1.5">
+                                                    <div className="flex justify-between items-center gap-2 text-[11px] font-bold text-slate-400 tracking-tight">
+                                                        <span className="truncate">{project.stats?.completedTasks || 0}/{project.stats?.totalTasks || 0} Tasks</span>
+                                                        <span className="text-white/80 shrink-0">{project.stats?.percentComplete || 0}%</span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                                        <motion.div 
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${project.stats?.percentComplete || 0}%` }}
+                                                            transition={{ duration: 0.5, ease: "easeOut" }}
+                                                            className="h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+                                                            style={{ backgroundColor: project.color || '#6366f1' }}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <button
@@ -526,6 +539,7 @@ const MyProjects = () => {
                             <KanbanBoard
                                 token={token}
                                 projects={projects}
+                                onTaskUpdate={fetchProjects}
                                 onNavigateToProject={(id) => {
                                     setSelectedProject(id);
                                     setShowKanban(false);

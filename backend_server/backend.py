@@ -1804,13 +1804,30 @@ def analyze_media():
 @app.route("/projects", methods=["GET"])
 @token_required
 def get_projects():
-    """Get all projects for the logged-in user"""
+    """Get all projects for the logged-in user with task statistics"""
     projects = list(
         projects_collection.find({"userId": request.user_id}).sort("created", -1)
     )
-    # Convert ObjectId to string for JSON serialization
+    
+    # Get all tasks for this user to calculate stats
+    all_tasks = list(tasks_collection.find({"userId": request.user_id}))
+    
+    # Convert ObjectId to string for JSON serialization and add stats
     for project in projects:
-        project["_id"] = str(project["_id"])
+        project_id_str = str(project["_id"])
+        project["_id"] = project_id_str
+        
+        # Calculate stats for this project
+        project_tasks = [t for t in all_tasks if str(t.get("projectId")) == project_id_str]
+        total_tasks = len(project_tasks)
+        completed_tasks = len([t for t in project_tasks if t.get("status") == "done"])
+        
+        project["stats"] = {
+            "totalTasks": total_tasks,
+            "completedTasks": completed_tasks,
+            "percentComplete": round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
+        }
+        
     return jsonify(projects)
 
 

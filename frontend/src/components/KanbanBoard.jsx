@@ -14,7 +14,7 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
+const KanbanBoard = ({ token, projects, onNavigateToProject, onTaskUpdate }) => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -81,6 +81,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
             setTasks([...tasks, task]);
             setShowCreateModal(false);
             setNewTask({ title: '', description: '', status: 'todo', dueDate: '', projectId: '' });
+            if (onTaskUpdate) onTaskUpdate();
         } catch (error) {
             console.error('Error creating task:', error);
         } finally {
@@ -96,6 +97,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (onTaskUpdate) onTaskUpdate();
         } catch (error) {
             console.error('Error deleting task:', error);
             setTasks(oldTasks);
@@ -112,6 +114,7 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
                 },
                 body: JSON.stringify({ status: newStatus, order: newOrder })
             });
+            if (onTaskUpdate) onTaskUpdate();
         } catch (error) {
             console.error('Error updating task:', error);
             fetchTasks(); // Sync back with server on error
@@ -186,14 +189,34 @@ const KanbanBoard = ({ token, projects, onNavigateToProject }) => {
         );
     }
 
+    const globalTotal = tasks.length;
+    const globalDone = tasks.filter(t => t.status === 'done').length;
+    const globalPercent = globalTotal > 0 ? Math.round((globalDone / globalTotal) * 100) : 0;
+
     return (
         <div className="h-full flex flex-col p-6 overflow-hidden">
-            <div className="flex items-center justify-between mb-8">
-                <div>
+            <div className="flex items-start justify-between mb-8">
+                <div className="flex-1 mr-8">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
                         Task Board
                     </h2>
                     <p className="text-slate-500 text-sm mt-1">Manage your project milestones</p>
+                    
+                    {/* Global Progress Bar */}
+                    <div className="mt-4 max-w-md">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Overall Progress</span>
+                            <span className="text-[10px] font-bold text-indigo-400 font-mono tracking-wider">{globalDone}/{globalTotal} Tasks Done ({globalPercent}%)</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                            <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${globalPercent}%` }}
+                                transition={{ duration: 1, ease: "circOut" }}
+                                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.3)]"
+                            />
+                        </div>
+                    </div>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
