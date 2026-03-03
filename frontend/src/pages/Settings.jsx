@@ -681,8 +681,37 @@ const AppearanceSection = () => {
 };
 
 // Privacy Section
-const PrivacySection = () => {
+const PrivacySection = ({ onLogout }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        setDeleteError('');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/auth/account`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                // Logout user and redirect to home
+                onLogout();
+            } else {
+                const data = await response.json();
+                setDeleteError(data.error || 'Failed to delete account');
+            }
+        } catch (error) {
+            console.error('Account deletion failed:', error);
+            setDeleteError('An error occurred. Please try again.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -718,6 +747,13 @@ const PrivacySection = () => {
                     <p className="text-slate-400 text-sm mb-4">
                         Permanently delete your account and all associated data. This action cannot be undone.
                     </p>
+                    
+                    {deleteError && (
+                        <div className="mb-4 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                            {deleteError}
+                        </div>
+                    )}
+
                     {!showDeleteConfirm ? (
                         <button
                             onClick={() => setShowDeleteConfirm(true)}
@@ -737,7 +773,12 @@ const PrivacySection = () => {
                                 <li>Your account and profile data</li>
                             </ul>
                             <div className="flex items-center gap-3 pt-2">
-                                <button className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all">
+                                <button 
+                                    onClick={handleDeleteAccount}
+                                    disabled={isDeleting}
+                                    className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all flex items-center gap-2"
+                                >
+                                    {isDeleting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     Yes, Delete Everything
                                 </button>
                                 <button
@@ -787,7 +828,7 @@ const Settings = () => {
             case 'appearance':
                 return <AppearanceSection />;
             case 'privacy':
-                return <PrivacySection />;
+                return <PrivacySection onLogout={handleLogout} />;
             default:
                 return <ProfileSection user={user} onUserUpdate={handleUserUpdate} />;
         }

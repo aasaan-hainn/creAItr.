@@ -12,7 +12,6 @@ const Header = () => {
         { label: "Home", href: "/" },
         { label: "Projects", href: "/my-projects" },
         { label: "Support", href: "/support" },
-        { label: "Settings", href: "/settings" },
     ];
 
     const location = useLocation();
@@ -22,8 +21,7 @@ const Header = () => {
         if (path === '/') return 0;
         if (path.startsWith('/my-projects')) return 1;
         if (path.startsWith('/support')) return 2;
-        if (path.startsWith('/settings')) return 3;
-        return 0;
+        return -1; // No active index for settings or other pages
     };
 
     const handleLogout = () => {
@@ -68,9 +66,23 @@ const Header = () => {
                     </div>
                     {/* User Info & Logout */}
                     <div className="flex items-center gap-3 pl-4 border-l border-white/10">
-                        <span className="text-sm text-slate-400 hidden md:block">
-                            {user?.email}
-                        </span>
+                        <Link to="/settings" className="flex items-center gap-3 group">
+                            {user?.picture ? (
+                                <img 
+                                    src={user.picture} 
+                                    alt="Profile" 
+                                    className="w-8 h-8 rounded-full object-cover border border-white/10 group-hover:border-indigo-500/50 transition-colors"
+                                    referrerPolicy="no-referrer"
+                                />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white border border-white/10 group-hover:border-indigo-500/50 transition-colors">
+                                    {(user?.fullName || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors hidden lg:block">
+                                {user?.fullName || user?.name || 'User'}
+                            </span>
+                        </Link>
                         <button
                             onClick={handleLogout}
                             className="p-2 hover:bg-white/10 rounded-lg transition-colors group"

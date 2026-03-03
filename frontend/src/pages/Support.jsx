@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import Header from '../components/Header';
 import { SparklesCore } from '../components/SparklesCore';
-import { ChevronDown, ChevronUp, Mail, MessageCircle, FileText, HelpCircle } from 'lucide-react';
+import { 
+    ChevronDown, 
+    ChevronUp, 
+    Mail, 
+    MessageCircle, 
+    FileText, 
+    HelpCircle,
+    Github,
+    Linkedin,
+    Instagram,
+    AtSign
+} from 'lucide-react';
 import { CardSpotlight } from '../components/ui/card-spotlight';
 
 const FaqItem = ({ question, answer }) => {
@@ -142,6 +153,60 @@ const Support = () => {
                         {faqs.map((faq, index) => (
                             <FaqItem key={index} question={faq.question} answer={faq.answer} />
                         ))}
+                    </div>
+                </div>
+
+                {/* Connect Section */}
+                <div className="mt-32 pt-16 border-t border-white/5">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">Connect With Us</h2>
+                        <p className="text-slate-400">Follow our journey and stay updated with the latest features.</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap justify-center gap-6 md:gap-12 pb-10">
+                        <a 
+                            href="https://github.com/aasaan-hainn/creAItr..git" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex flex-col items-center gap-3 group"
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-indigo-500/50 group-hover:bg-indigo-500/10 transition-all duration-300">
+                                <Github className="w-7 h-7 text-slate-400 group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-xs font-medium text-slate-500 group-hover:text-slate-300 transition-colors uppercase tracking-widest">GitHub</span>
+                        </a>
+
+                        <a 
+                            href="#" 
+                            className="flex flex-col items-center gap-3 group opacity-40 cursor-not-allowed"
+                            onClick={(e) => e.preventDefault()}
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                <Linkedin className="w-7 h-7 text-slate-400" />
+                            </div>
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">LinkedIn</span>
+                        </a>
+
+                        <a 
+                            href="mailto:bimbokmkj@gmail.com" 
+                            className="flex flex-col items-center gap-3 group"
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-indigo-500/50 group-hover:bg-indigo-500/10 transition-all duration-300">
+                                <AtSign className="w-7 h-7 text-slate-400 group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-xs font-medium text-slate-500 group-hover:text-slate-300 transition-colors uppercase tracking-widest">Gmail</span>
+                        </a>
+
+                        <a 
+                            href="#" 
+                            className="flex flex-col items-center gap-3 group opacity-40 cursor-not-allowed"
+                            onClick={(e) => e.preventDefault()}
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                <Instagram className="w-7 h-7 text-slate-400" />
+                            </div>
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Instagram</span>
+                        </a>
                     </div>
                 </div>
             </main>

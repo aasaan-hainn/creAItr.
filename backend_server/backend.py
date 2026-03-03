@@ -418,6 +418,58 @@ def upload_profile_picture():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/auth/account", methods=["DELETE"])
+@token_required
+def delete_account():
+    """Archive and delete user account and all associated data"""
+    from mongodb import db, channel_stats_collection
+    
+    user_id = request.user_id
+    archived_users_collection = db["archived_users"]
+
+    try:
+        # 1. Fetch all user data
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        projects = list(projects_collection.find({"userId": user_id}))
+        tasks = list(tasks_collection.find({"userId": user_id}))
+        chats = list(chats_collection.find({"userId": user_id}))
+        stats = list(channel_stats_collection.find({"userId": user_id}))
+
+        # 2. Create archive document
+        archive_doc = {
+            "userId": user_id,
+            "email": user.get("email"),
+            "profile": user,
+            "data": {
+                "projects": projects,
+                "tasks": tasks,
+                "chats": chats,
+                "channel_stats": stats
+            },
+            "deletedAt": datetime.datetime.now().isoformat(),
+            "reason": "User requested account deletion"
+        }
+
+        # 3. Insert into archive collection
+        archived_users_collection.insert_one(archive_doc)
+
+        # 4. Delete from original collections
+        projects_collection.delete_many({"userId": user_id})
+        tasks_collection.delete_many({"userId": user_id})
+        chats_collection.delete_many({"userId": user_id})
+        channel_stats_collection.delete_many({"userId": user_id})
+        users_collection.delete_one({"_id": ObjectId(user_id)})
+
+        return jsonify({"message": "Account deleted and data archived successfully"})
+
+    except Exception as e:
+        print(f"Error during account deletion: {e}")
+        return jsonify({"error": "Failed to delete account. Please try again later."}), 500
+
+
 # --- YOUTUBE STATS ROUTES ---
 
 
