@@ -247,6 +247,7 @@ const MyProjects = () => {
     const [showStats, setShowStats] = useState(false);
     const [showKanban, setShowKanban] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     // Helper function to get auth headers
     const getAuthHeaders = useCallback(() => ({
@@ -404,109 +405,134 @@ const MyProjects = () => {
         });
     };
 
+    const renderSidebarContent = (isMobile = false) => (
+        <>
+            <div className="flex flex-col gap-2">
+                <button
+                    onClick={() => {
+                        setShowStats(true);
+                        setShowKanban(false);
+                        setSelectedProject(null);
+                        setActiveTool(null);
+                        if (isMobile) setIsMobileSidebarOpen(false);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showStats
+                        ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                >
+                    <IconChartBar className={`w-5 h-5 ${showStats ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
+                    <span className="font-semibold text-sm">Stats</span>
+                </button>
+
+                <button
+                    onClick={() => {
+                        setShowKanban(true);
+                        setShowStats(false);
+                        setSelectedProject(null);
+                        setActiveTool(null);
+                        if (isMobile) setIsMobileSidebarOpen(false);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showKanban
+                        ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                >
+                    <IconLayoutKanban className={`w-5 h-5 ${showKanban ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
+                    <span className="font-semibold text-sm">Todo List</span>
+                </button>
+
+                <button
+                    onClick={() => {
+                        setShowCreateModal(true);
+                        setShowStats(false);
+                        setShowKanban(false);
+                        if (isMobile) setIsMobileSidebarOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
+                >
+                    <IconPlus className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300" />
+                    <span className="font-semibold text-sm">New Project</span>
+                </button>
+
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">
+                    Created Projects
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                {loading ? (
+                    <div className="text-slate-500 text-sm text-center py-4">Loading...</div>
+                ) : projects.length === 0 ? (
+                    <div className="text-slate-500 text-sm text-center py-4">No projects yet</div>
+                ) : (
+                    projects.map((project) => (
+                        <div
+                            key={project._id}
+                            onClick={() => {
+                                setSelectedProject(project._id);
+                                setShowStats(false);
+                                setShowKanban(false);
+                                if (isMobile) setIsMobileSidebarOpen(false);
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedProject === project._id
+                                ? 'bg-white/5 border-indigo-500/50'
+                                : 'border-transparent hover:bg-white/5 hover:border-white/10'
+                                }`}
+                        >
+                            {selectedProject === project._id && (
+                                <div
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full -ml-[1px]"
+                                    style={{ backgroundColor: project.color || '#6366f1' }}
+                                />
+                            )}
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                    <div
+                                        className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                                        style={{ backgroundColor: project.color || '#6366f1' }}
+                                    />
+                                    <div>
+                                        <h3 className={`font-medium text-sm mb-0.5 transition-colors ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}
+                                            style={selectedProject === project._id ? { color: project.color || '#fff' } : {}}
+                                        >
+                                            {project.name}
+                                        </h3>
+                                        <p className="text-[10px] text-slate-500">
+                                            {formatDate(project.created)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={(e) => deleteProject(project._id, e)}
+                                    className="opacity-70 md:opacity-0 md:group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all"
+                                >
+                                    <IconTrash className="w-4 h-4 text-red-400" />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-white/5">
+                <TrendSpotter token={token} onCreateProject={handleCreateProjectByName} />
+            </div>
+        </>
+    );
+
     return (
         <div className="h-screen bg-black text-white flex flex-col font-sans selection:bg-indigo-500/30 overflow-hidden">
             <Header />
 
-            <div className="flex flex-1 pt-24 px-4 gap-4 pb-4 overflow-hidden">
+            <div className="relative flex flex-1 pt-24 px-3 md:px-4 gap-3 md:gap-4 pb-3 md:pb-4 overflow-hidden">
                 {/* Sidebar */}
-                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pr-0 border-r-0 overflow-hidden' : 'w-64 opacity-100 pr-4 border-r border-white/10'} flex flex-col gap-4 relative transition-all duration-300 ease-in-out`}>
-                    {/* Header Section of Sidebar */}
-                    <div className="flex flex-col gap-2">
-                        <button
-                            onClick={() => { setShowStats(true); setShowKanban(false); setSelectedProject(null); setActiveTool(null); }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showStats
-                                ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                                : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
-                                }`}
-                        >
-                            <IconChartBar className={`w-5 h-5 ${showStats ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
-                            <span className="font-semibold text-sm">Stats</span>
-                        </button>
-
-                        <button
-                            onClick={() => { setShowKanban(true); setShowStats(false); setSelectedProject(null); setActiveTool(null); }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all group ${showKanban
-                                ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                                : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
-                                }`}
-                        >
-                            <IconLayoutKanban className={`w-5 h-5 ${showKanban ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
-                            <span className="font-semibold text-sm">Todo List</span>
-                        </button>
-
-                        <button
-                            onClick={() => { setShowCreateModal(true); setShowStats(false); setShowKanban(false); }}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
-                        >
-                            <IconPlus className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300" />
-                            <span className="font-semibold text-sm">New Project</span>
-                        </button>
-
-                        <div className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">
-                            Created Projects
-                        </div>
-                    </div>
-
-                    {/* Projects List */}
-                    <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {loading ? (
-                            <div className="text-slate-500 text-sm text-center py-4">Loading...</div>
-                        ) : projects.length === 0 ? (
-                            <div className="text-slate-500 text-sm text-center py-4">No projects yet</div>
-                        ) : (
-                            projects.map((project) => (
-                                <div
-                                    key={project._id}
-                                    onClick={() => { setSelectedProject(project._id); setShowStats(false); setShowKanban(false); }}
-                                    className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedProject === project._id
-                                        ? 'bg-white/5 border-indigo-500/50'
-                                        : 'border-transparent hover:bg-white/5 hover:border-white/10'
-                                        }`}
-                                >
-                                    {selectedProject === project._id && (
-                                        <div 
-                                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full -ml-[1px]" 
-                                            style={{ backgroundColor: project.color || '#6366f1' }}
-                                        />
-                                    )}
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-start gap-3">
-                                            <div 
-                                                className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                                                style={{ backgroundColor: project.color || '#6366f1' }}
-                                            />
-                                            <div>
-                                                <h3 className={`font-medium text-sm mb-0.5 transition-colors ${selectedProject === project._id ? 'text-white' : 'text-slate-300'}`}
-                                                    style={selectedProject === project._id ? { color: project.color || '#fff' } : {}}
-                                                >
-                                                    {project.name}
-                                                </h3>
-                                                <p className="text-[10px] text-slate-500">
-                                                    {formatDate(project.created)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={(e) => deleteProject(project._id, e)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all"
-                                        >
-                                            <IconTrash className="w-4 h-4 text-red-400" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-
-                    {/* Trend Spotter Section */}
-                    <div className="mt-auto pt-4 border-t border-white/5">
-                        <TrendSpotter token={token} onCreateProject={handleCreateProjectByName} />
-                    </div>
+                <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pr-0 border-r-0 overflow-hidden' : 'w-64 opacity-100 pr-4 border-r border-white/10'} hidden md:flex flex-col gap-4 relative transition-all duration-300 ease-in-out`}>
+                    {renderSidebarContent()}
                 </div>
 
                 {/* Collapse Button - Outside sidebar so it's always visible */}
-                <div className="absolute left-[var(--sidebar-offset)] top-1/2 -translate-y-1/2 z-20 transition-all duration-300" style={{ '--sidebar-offset': isSidebarCollapsed ? '8px' : '268px' }}>
+                <div className="hidden md:block absolute left-[var(--sidebar-offset)] top-1/2 -translate-y-1/2 z-20 transition-all duration-300" style={{ '--sidebar-offset': isSidebarCollapsed ? '8px' : '268px' }}>
                     <button
                         onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                         className="h-6 w-6 rounded-full bg-black border border-white/20 flex items-center justify-center hover:scale-110 hover:border-indigo-500/50 transition-all"
@@ -517,6 +543,47 @@ const MyProjects = () => {
                 </div>
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col gap-3 border border-white/10 rounded-2xl p-3 bg-white/[0.02] overflow-hidden">
+                    <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        <button
+                            onClick={() => setIsMobileSidebarOpen(true)}
+                            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold whitespace-nowrap"
+                        >
+                            Projects
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowStats(true);
+                                setShowKanban(false);
+                                setSelectedProject(null);
+                                setActiveTool(null);
+                            }}
+                            className={`px-3 py-2 rounded-lg border text-xs font-semibold whitespace-nowrap ${showStats ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300' : 'bg-white/5 border-white/10'}`}
+                        >
+                            Stats
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowKanban(true);
+                                setShowStats(false);
+                                setSelectedProject(null);
+                                setActiveTool(null);
+                            }}
+                            className={`px-3 py-2 rounded-lg border text-xs font-semibold whitespace-nowrap ${showKanban ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300' : 'bg-white/5 border-white/10'}`}
+                        >
+                            Todo
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowCreateModal(true);
+                                setShowStats(false);
+                                setShowKanban(false);
+                            }}
+                            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold whitespace-nowrap"
+                        >
+                            New Project
+                        </button>
+                    </div>
+
                     <Suspense fallback={<PanelLoader />}>
                         {showStats ? (
                             /* Stats Section - YouTube Analytics */
@@ -559,6 +626,37 @@ const MyProjects = () => {
                     </Suspense>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {isMobileSidebarOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileSidebarOpen(false)}
+                            className="md:hidden fixed inset-0 bg-black/70 z-[65]"
+                        />
+                        <motion.aside
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', stiffness: 280, damping: 32 }}
+                            className="md:hidden fixed left-0 top-0 h-full w-[86vw] max-w-sm bg-black border-r border-white/10 z-[70] pt-24 pb-4 px-3"
+                        >
+                            <button
+                                onClick={() => setIsMobileSidebarOpen(false)}
+                                className="absolute top-24 right-3 p-2 rounded-lg border border-white/10 bg-white/5"
+                            >
+                                <IconX className="w-4 h-4" />
+                            </button>
+                            <div className="h-full flex flex-col gap-4 pr-1">
+                                {renderSidebarContent(true)}
+                            </div>
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Create Project Modal */}
             {showCreateModal && (
