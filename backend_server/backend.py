@@ -394,6 +394,65 @@ def update_password():
     })
 
 
+@app.route("/auth/profile/context", methods=["GET"])
+@token_required
+def get_global_context():
+    """Get user's global context (content types, preferences, instructions)"""
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    context = user.get("globalContext", {
+        "contentTypes": [],
+        "preferences": "",
+        "instructions": ""
+    })
+    
+    return jsonify(context)
+
+
+@app.route("/auth/profile/context", methods=["PUT"])
+@token_required
+def update_global_context():
+    """Update user's global context"""
+    data = request.json
+    
+    content_types = data.get("contentTypes", [])
+    preferences = data.get("preferences", "").strip()
+    instructions = data.get("instructions", "").strip()
+
+    # Validation
+    if not isinstance(content_types, list):
+        return jsonify({"error": "Content types must be a list"}), 400
+    
+    if len(preferences) > 2000:
+        return jsonify({"error": "Preferences must be less than 2000 characters"}), 400
+        
+    if len(instructions) > 5000:
+        return jsonify({"error": "Instructions must be less than 5000 characters"}), 400
+
+    # Update user in database
+    users_collection.update_one(
+        {"_id": ObjectId(request.user_id)},
+        {"$set": {
+            "globalContext": {
+                "contentTypes": content_types,
+                "preferences": preferences,
+                "instructions": instructions
+            }
+        }}
+    )
+
+    return jsonify({
+        "message": "Global context updated successfully",
+        "globalContext": {
+            "contentTypes": content_types,
+            "preferences": preferences,
+            "instructions": instructions
+        }
+    })
+
+
 @app.route("/auth/profile/picture", methods=["POST"])
 @token_required
 def upload_profile_picture():
@@ -1490,6 +1549,17 @@ def chat():
     user_query = data.get("message", "")
     history = data.get("history", [])
 
+    # Try to get user context if authenticated
+    global_context = None
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        payload = verify_token(token)
+        if payload:
+            user = users_collection.find_one({"_id": ObjectId(payload['user_id'])})
+            if user:
+                global_context = user.get("globalContext")
+
     def generate():
         # 1. RAG Search
         results = collection.query(query_texts=[user_query], n_results=3)
@@ -1501,23 +1571,42 @@ def chat():
         # 2. Prepare System Prompt
         today = datetime.datetime.now().strftime("%Y-%m-%d")
 
+        # Global Context String
+        global_context_str = ""
+        if global_context:
+            content_types = global_context.get("contentTypes", [])
+            preferences = global_context.get("preferences", "")
+            instructions = global_context.get("instructions", "")
+            
+            if content_types or preferences or instructions:
+                global_context_str = "USER GLOBAL CONTEXT & PREFERENCES:\n"
+                if content_types:
+                    global_context_str += f"- Content Types: {', '.join(content_types)}\n"
+                if preferences:
+                    global_context_str += f"- Preferences: {preferences}\n"
+                if instructions:
+                    global_context_str += f"- Global Instructions: {instructions}\n"
+                global_context_str += "\n"
+
         system_instruction = f"""
         You are a helpful assistant for daily life and creative work.
         Today's Date: {today}
 
+        {global_context_str}
         INSTRUCTIONS:
         1. Check the provided CONTEXT below.
         2. If the CONTEXT contains information relevant to the user's QUESTION, use it to answer.
+        3. If USER GLOBAL CONTEXT is provided, tailor your response tone, format, and content to match those preferences.
         
         CRITICAL RULE FOR NEWS:
-        3. If the user asks for "latest news", "current events", "what happened today", or specific recent updates:
+        4. If the user asks for "latest news", "current events", "what happened today", or specific recent updates:
            - You MUST answer based ONLY on the provided CONTEXT.
            - If the CONTEXT is empty or does not contain the requested news, DO NOT use your internal training data.
            - Instead, explicitly state: "I don't have information on that in my local database. Please click 'Update News DB' to fetch the latest headlines."
 
         AGENTIC TASKS / TOOL USE:
-        4. You can perform specific tasks by including a special `<tool_call>` tag in your response.
-        5. Supported Tasks:
+        5. You can perform specific tasks by including a special `<tool_call>` tag in your response.
+        6. Supported Tasks:
            - `create_project(name)`: Use this if the user wants to start a new project.
            - `write_content(content)`: Use this if the user wants to write or update content in their writing area.
            - `draw_diagram(prompt)`: Use this if the user wants to create a diagram, flowchart, or any visual representation. The prompt should be a clear description of the diagram.
@@ -1536,10 +1625,10 @@ def chat():
         IMPORTANT: Always provide a natural language confirmation/reply ALONG WITH the tool call.
 
         GENERAL KNOWLEDGE FALLBACK:
-        6. For questions NOT related to news or current events (e.g., "how to cook pasta", "explain python code"), if the CONTEXT is empty, you MAY answer using your own internal knowledge.
+        7. For questions NOT related to news or current events (e.g., "how to cook pasta", "explain python code"), if the CONTEXT is empty, you MAY answer using your own internal knowledge.
         
         CONTEXT:
-        {{context}}
+        {context}
         """
 
         # 3. Construct Message Chain
@@ -1693,13 +1782,42 @@ def generate_writing():
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
-    # Base system instruction
-    system_instruction = """You are an expert writing assistant. Your task is to generate or edit text based on the user's instructions.
+    # Try to get user context if authenticated
+    global_context = None
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        payload = verify_token(token)
+        if payload:
+            user = users_collection.find_one({"_id": ObjectId(payload['user_id'])})
+            if user:
+                global_context = user.get("globalContext")
 
+    # Global Context String
+    global_context_str = ""
+    if global_context:
+        content_types = global_context.get("contentTypes", [])
+        preferences = global_context.get("preferences", "")
+        instructions = global_context.get("instructions", "")
+        
+        if content_types or preferences or instructions:
+            global_context_str = "USER GLOBAL CONTEXT & PREFERENCES:\n"
+            if content_types:
+                global_context_str += f"- Content Types: {', '.join(content_types)}\n"
+            if preferences:
+                global_context_str += f"- Preferences: {preferences}\n"
+            if instructions:
+                global_context_str += f"- Global Instructions: {instructions}\n"
+            global_context_str += "\n"
+
+    # Base system instruction
+    system_instruction = f"""You are an expert writing assistant. Your task is to generate or edit text based on the user's instructions.
+{global_context_str}
 CRITICAL RULES:
 1. Return ONLY the resulting text. Do not add conversational filler like "Here is the text," "Sure," or "I've updated it."
 2. Use markdown formatting (bold, italic, headers) where appropriate.
 3. If the user asks for code, provide just the code.
+4. If USER GLOBAL CONTEXT is provided, ensure the tone, style, and content align with those preferences.
 """
 
     user_content = f"Instruction: {prompt}"

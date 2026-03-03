@@ -219,11 +219,14 @@ export default function WritingArea({ projectId, token }) {
         mode = "edit-full";
       }
 
+      const headers = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_BASE_URL}/generate-writing`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: headers,
         body: JSON.stringify(payload),
       });
 

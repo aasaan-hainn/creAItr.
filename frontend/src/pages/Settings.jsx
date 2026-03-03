@@ -13,6 +13,7 @@ import {
     LogOut,
     Trash2,
     Check,
+    Sparkles,
     AlertTriangle,
     ExternalLink,
     Moon,
@@ -29,6 +30,7 @@ const DELETE_ACCOUNT_CONFIRMATION_TEXT = "I Am Sure That I Am Responsible To Del
 const settingsSections = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'account', label: 'Account', icon: KeyRound },
+    { id: 'ai-context', label: 'AI Context', icon: Sparkles },
     { id: 'youtube', label: 'YouTube', icon: Youtube },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'privacy', label: 'Privacy & Data', icon: Shield },
@@ -633,6 +635,170 @@ const YouTubeSection = () => {
     );
 };
 
+// AI Context Section
+const AIContextSection = ({ user }) => {
+    const [context, setContext] = useState({
+        contentTypes: [],
+        preferences: '',
+        instructions: ''
+    });
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const availableContentTypes = [
+        'Blog Posts', 'YouTube Scripts', 'Social Media', 'Academic Writing',
+        'Technical Documentation', 'Creative Stories', 'Emails', 'Code'
+    ];
+
+    useEffect(() => {
+        const fetchContext = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/auth/profile/context`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setContext(data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch AI context:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchContext();
+    }, []);
+
+    const handleToggleContentType = (type) => {
+        setContext(prev => {
+            const types = prev.contentTypes.includes(type)
+                ? prev.contentTypes.filter(t => t !== type)
+                : [...prev.contentTypes, type];
+            return { ...prev, contentTypes: types };
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        setMessage({ type: '', text: '' });
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/auth/profile/context`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(context)
+            });
+            if (response.ok) {
+                setMessage({ type: 'success', text: 'AI Context updated successfully!' });
+            } else {
+                const data = await response.json();
+                setMessage({ type: 'error', text: data.error || 'Failed to update context' });
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'An error occurred. Please try again.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return (
+        <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-bold text-white mb-2">AI Global Context</h2>
+                <p className="text-slate-400">Personalize how the AI interacts with you and understands your work</p>
+            </div>
+
+            {message.text && (
+                <div className={`px-4 py-3 rounded-xl text-sm ${message.type === 'success'
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                    }`}>
+                    {message.text}
+                </div>
+            )}
+
+            <CardSpotlight className="p-6 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-md" color="#818cf8">
+                <div className="relative z-20 space-y-8">
+                    {/* Content Types */}
+                    <div className="space-y-4">
+                        <label className="text-lg font-semibold text-white flex items-center gap-2">
+                            <Palette className="w-5 h-5 text-indigo-400" />
+                            Content Types
+                        </label>
+                        <p className="text-sm text-slate-400">What type of content do you usually create?</p>
+                        <div className="flex flex-wrap gap-2">
+                            {availableContentTypes.map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => handleToggleContentType(type)}
+                                    className={`px-4 py-2 rounded-full text-sm transition-all border ${context.contentTypes.includes(type)
+                                        ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
+                                        : 'bg-white/5 text-slate-400 border-white/10 hover:border-white/30'
+                                        }`}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Preferences */}
+                    <div className="space-y-4">
+                        <label className="text-lg font-semibold text-white flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-indigo-400" />
+                            General Preferences
+                        </label>
+                        <p className="text-sm text-slate-400">Tone, language, style, or specific formatting rules.</p>
+                        <textarea
+                            value={context.preferences}
+                            onChange={(e) => setContext({ ...context, preferences: e.target.value })}
+                            className="w-full h-32 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none"
+                            placeholder="e.g., Professional yet friendly tone, use UK English, prefer concise bullet points..."
+                        />
+                    </div>
+
+                    {/* Custom Instructions */}
+                    <div className="space-y-4">
+                        <label className="text-lg font-semibold text-white flex items-center gap-2">
+                            <User className="w-5 h-5 text-indigo-400" />
+                            Global AI Instructions
+                        </label>
+                        <p className="text-sm text-slate-400">Direct instructions that apply to ALL your AI interactions.</p>
+                        <textarea
+                            value={context.instructions}
+                            onChange={(e) => setContext({ ...context, instructions: e.target.value })}
+                            className="w-full h-40 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none"
+                            placeholder="e.g., Never use passive voice, always check for SEO optimization, if writing code use modern ES6+ syntax..."
+                        />
+                    </div>
+
+                    <div className="pt-4 border-t border-white/10">
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-semibold hover:bg-indigo-600 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                        >
+                            {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            Save AI Context
+                        </button>
+                    </div>
+                </div>
+            </CardSpotlight>
+        </div>
+    );
+};
+
 // Appearance Section
 const AppearanceSection = () => {
     const [theme, setTheme] = useState('dark');
@@ -950,6 +1116,8 @@ const Settings = () => {
                 return <ProfileSection user={user} onUserUpdate={handleUserUpdate} />;
             case 'account':
                 return <AccountSection user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />;
+            case 'ai-context':
+                return <AIContextSection user={user} />;
             case 'youtube':
                 return <YouTubeSection />;
             case 'appearance':

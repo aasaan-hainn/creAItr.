@@ -480,11 +480,16 @@ function AIChat({ hideSidebar = false, projectId = null }) {
         content,
       }));
 
+      const headers = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify({ message: input, history: historyPayload }),
         },
       );
