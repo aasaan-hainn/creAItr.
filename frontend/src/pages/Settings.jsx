@@ -18,7 +18,8 @@ import {
     Moon,
     Sun,
     Download,
-    ChevronRight
+    ChevronRight,
+    Camera
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -63,11 +64,61 @@ const ProfileSection = ({ user, onUserUpdate }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [fullName, setFullName] = useState(user?.fullName || user?.name || '');
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const fileInputRef = React.useRef(null);
 
     useEffect(() => {
         setFullName(user?.fullName || user?.name || '');
     }, [user]);
+
+    const handlePictureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validation
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: 'Please upload an image file' });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setMessage({ type: 'error', text: 'Image size must be less than 5MB' });
+            return;
+        }
+
+        setUploading(true);
+        setMessage({ type: '', text: '' });
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/auth/profile/picture`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setMessage({ type: 'success', text: 'Profile picture updated!' });
+                if (onUserUpdate && data.picture) {
+                    onUserUpdate({ ...user, picture: data.picture });
+                }
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to upload image' });
+            }
+        } catch (error) {
+            console.error('Upload failed:', error);
+            setMessage({ type: 'error', text: 'Upload failed. Please try again.' });
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!fullName.trim()) {
@@ -126,18 +177,40 @@ const ProfileSection = ({ user, onUserUpdate }) => {
                 <div className="relative z-20 space-y-6">
                     {/* Avatar */}
                     <div className="flex items-center gap-4">
-                        {user?.picture ? (
-                            <img
-                                src={user.picture}
-                                alt="Profile"
-                                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500/30"
-                                referrerPolicy="no-referrer"
+                        <div className="relative group">
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handlePictureUpload} 
+                                className="hidden" 
+                                accept="image/*"
                             />
-                        ) : (
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-2xl font-bold text-white">
-                                {(user?.fullName || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="relative w-20 h-20 cursor-pointer"
+                            >
+                                {user?.picture ? (
+                                    <img
+                                        src={user.picture}
+                                        alt="Profile"
+                                        className="w-full h-full rounded-full object-cover border-2 border-indigo-500/30 group-hover:opacity-50 transition-opacity"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-3xl font-bold text-white group-hover:opacity-50 transition-opacity">
+                                        {(user?.fullName || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                                
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {uploading ? (
+                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <Camera className="w-8 h-8 text-white" />
+                                    )}
+                                </div>
                             </div>
-                        )}
+                        </div>
                         <div>
                             <h3 className="text-lg font-semibold text-white">{user?.fullName || user?.name || 'User'}</h3>
                             <p className="text-slate-400 text-sm">{user?.email}</p>
@@ -233,8 +306,69 @@ const ProfileSection = ({ user, onUserUpdate }) => {
 };
 
 // Account Section
-const AccountSection = ({ user, onLogout }) => {
+const AccountSection = ({ user, onLogout, onUserUpdate }) => {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [passwordError, setPasswordError] = useState('');
+    const [passwordSuccess, setPasswordSuccess] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setPasswordError('');
+        setPasswordSuccess('');
+
+        if (passwordData.newPassword.length < 6) {
+            setPasswordError('New password must be at least 6 characters');
+            return;
+        }
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordError('Passwords do not match');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/auth/password`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    currentPassword: passwordData.currentPassword,
+                    newPassword: passwordData.newPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setPasswordSuccess('Password updated successfully!');
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setTimeout(() => setIsChangingPassword(false), 2000);
+                
+                // Update user state to reflect hasPassword: true
+                if (onUserUpdate) {
+                    onUserUpdate({ ...user, hasPassword: true });
+                }
+            } else {
+                setPasswordError(data.error || 'Failed to update password');
+            }
+        } catch (error) {
+            console.error('Password update failed:', error);
+            setPasswordError('An error occurred. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -243,23 +377,104 @@ const AccountSection = ({ user, onLogout }) => {
                 <p className="text-slate-400">Manage your account settings and security</p>
             </div>
 
-            {/* Password Section - Only for non-Google users */}
-            {user?.provider !== 'google' && (
-                <CardSpotlight className="p-6 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-md" color="#818cf8">
-                    <div className="relative z-20">
-                        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                            <KeyRound className="w-5 h-5 text-indigo-400" />
-                            Password
-                        </h3>
-                        <p className="text-slate-400 text-sm mb-4">
-                            Change your password to keep your account secure.
-                        </p>
-                        <button className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all">
-                            Change Password
-                        </button>
-                    </div>
-                </CardSpotlight>
-            )}
+            {/* Password Section */}
+            <CardSpotlight className="p-6 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-md" color="#818cf8">
+                <div className="relative z-20">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <KeyRound className="w-5 h-5 text-indigo-400" />
+                        Password
+                    </h3>
+                    
+                    {!isChangingPassword ? (
+                        <div className="space-y-4">
+                            <p className="text-slate-400 text-sm">
+                                {user?.hasPassword 
+                                    ? 'Change your password to keep your account secure.' 
+                                    : 'You haven\'t set a password yet. Setting a password will allow you to log in with your email directly.'}
+                            </p>
+                            <button 
+                                onClick={() => setIsChangingPassword(true)}
+                                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                            >
+                                {user?.hasPassword ? 'Change Password' : 'Set Password'}
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+                            {passwordError && (
+                                <div className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                                    {passwordError}
+                                </div>
+                            )}
+                            {passwordSuccess && (
+                                <div className="px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+                                    {passwordSuccess}
+                                </div>
+                            )}
+
+                            {user?.hasPassword && (
+                                <div>
+                                    <label className="text-xs text-slate-500 mb-1 block">Current Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordData.currentPassword}
+                                        onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                                        className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50"
+                                        placeholder="Enter current password"
+                                        required
+                                    />
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="text-xs text-slate-500 mb-1 block">New Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.newPassword}
+                                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                                    className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50"
+                                    placeholder="Min. 6 characters"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Confirm New Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.confirmPassword}
+                                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                                    className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50"
+                                    placeholder="Repeat new password"
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="px-4 py-2 rounded-xl bg-indigo-500 text-white hover:bg-indigo-600 transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {saving && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                    {user?.hasPassword ? 'Update Password' : 'Save Password'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsChangingPassword(false);
+                                        setPasswordError('');
+                                        setPasswordSuccess('');
+                                    }}
+                                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </CardSpotlight>
 
             {/* Sessions */}
             <CardSpotlight className="p-6 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-md" color="#818cf8">
@@ -566,7 +781,7 @@ const Settings = () => {
             case 'profile':
                 return <ProfileSection user={user} onUserUpdate={handleUserUpdate} />;
             case 'account':
-                return <AccountSection user={user} onLogout={handleLogout} />;
+                return <AccountSection user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />;
             case 'youtube':
                 return <YouTubeSection />;
             case 'appearance':

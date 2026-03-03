@@ -109,6 +109,7 @@ def register():
                 "fullName": "",
                 "picture": "",
                 "provider": "email",
+                "hasPassword": True,
             },
         }
     ), 201
@@ -149,6 +150,7 @@ def login():
                 "fullName": user.get("name", ""),
                 "picture": user.get("picture", ""),
                 "provider": "google" if user.get("googleId") else "email",
+                "hasPassword": bool(user.get("password")),
             },
         }
     )
@@ -235,6 +237,7 @@ def google_login():
                 "fullName": user.get("name", ""),
                 "picture": user.get("picture", ""),
                 "provider": "google",
+                "hasPassword": bool(user.get("password")),
             },
         }
     )
@@ -272,6 +275,7 @@ def verify_auth():
                 "fullName": user.get("name", ""),
                 "picture": user.get("picture", ""),
                 "provider": "google" if user.get("googleId") else "email",
+                "hasPassword": bool(user.get("password")),
             },
         }
     )
@@ -294,6 +298,7 @@ def get_current_user():
             "fullName": user.get("name", ""),
             "picture": user.get("picture", ""),
             "provider": "google" if user.get("googleId") else "email",
+            "hasPassword": bool(user.get("password")),
         }
     )
 
@@ -332,9 +337,85 @@ def update_profile():
                 "fullName": user.get("name", ""),
                 "picture": user.get("picture", ""),
                 "provider": "google" if user.get("googleId") else "email",
+                "hasPassword": bool(user.get("password")),
             }
         }
     )
+
+
+@app.route("/auth/password", methods=["PUT"])
+@token_required
+def update_password():
+    """Set or update user password"""
+    data = request.json
+    current_password = data.get("currentPassword")
+    new_password = data.get("newPassword")
+
+    if not new_password:
+        return jsonify({"error": "New password is required"}), 400
+
+    if len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # If user has an existing password, they MUST provide and verify the current one
+    if user.get("password"):
+        if not current_password:
+            return jsonify({"error": "Current password is required to set a new one"}), 400
+        
+        if not verify_password(current_password, user["password"]):
+            return jsonify({"error": "Invalid current password"}), 401
+
+    # Hash and update the new password
+    hashed_password = hash_password(new_password)
+    users_collection.update_one(
+        {"_id": ObjectId(request.user_id)},
+        {"$set": {"password": hashed_password}}
+    )
+
+    return jsonify({
+        "message": "Password updated successfully",
+        "hasPassword": True
+    })
+
+
+@app.route("/auth/profile/picture", methods=["POST"])
+@token_required
+def upload_profile_picture():
+    """Upload or update user profile picture"""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    
+    # Check file size (max 5MB for profile pic)
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+
+    if file_size > 5 * 1024 * 1024:
+        return jsonify({"error": "File too large. Max size is 5MB"}), 400
+
+    try:
+        # Upload to Cloudinary
+        result = upload_image(file, folder="hello-chat/profiles")
+        picture_url = result["url"]
+
+        # Update user in database
+        users_collection.update_one(
+            {"_id": ObjectId(request.user_id)},
+            {"$set": {"picture": picture_url}}
+        )
+
+        return jsonify({
+            "message": "Profile picture updated successfully",
+            "picture": picture_url
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # --- YOUTUBE STATS ROUTES ---
