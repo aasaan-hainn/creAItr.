@@ -12,6 +12,18 @@ from google import genai
 from bson import ObjectId
 
 import config
+
+class MongoJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+def json_util_dumps(obj):
+    return json.dumps(obj, cls=MongoJSONEncoder, indent=2)
+
 from database import collection
 from mongodb import projects_collection, users_collection, chats_collection, tasks_collection
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
@@ -468,6 +480,72 @@ def delete_account():
     except Exception as e:
         print(f"Error during account deletion: {e}")
         return jsonify({"error": "Failed to delete account. Please try again later."}), 500
+
+
+@app.route("/auth/export", methods=["GET"])
+@token_required
+def export_data():
+    """Export all user data as a downloadable JSON file"""
+    from mongodb import channel_stats_collection
+    
+    user_id = request.user_id
+
+    try:
+        # 1. Fetch all user data
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Clean up user profile (remove sensitive info)
+        user_data = {
+            "id": str(user["_id"]),
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "picture": user.get("picture"),
+            "socialAccounts": user.get("socialAccounts", []),
+            "createdAt": user.get("createdAt", ""),
+            "youtubeChannelId": user.get("youtubeChannelId", ""),
+        }
+
+        # 2. Fetch associated data
+        projects = list(projects_collection.find({"userId": user_id}))
+        for p in projects: p["_id"] = str(p["_id"])
+        
+        tasks = list(tasks_collection.find({"userId": user_id}))
+        for t in tasks: t["_id"] = str(t["_id"])
+        
+        chats = list(chats_collection.find({"userId": user_id}))
+        for c in chats: c["_id"] = str(c["_id"])
+        
+        stats = list(channel_stats_collection.find({"userId": user_id}))
+        for s in stats: s["_id"] = str(s["_id"])
+
+        # 3. Create export document
+        export_doc = {
+            "metadata": {
+                "exportedAt": datetime.datetime.now().isoformat(),
+                "version": "1.0",
+                "appName": "creAItr"
+            },
+            "profile": user_data,
+            "data": {
+                "projects": projects,
+                "tasks": tasks,
+                "chats": chats,
+                "channel_stats": stats
+            }
+        }
+
+        # 4. Return as JSON file download
+        return Response(
+            json_util_dumps(export_doc),
+            mimetype="application/json",
+            headers={"Content-disposition": f"attachment; filename=creaitr-data-{user_data['email']}.json"}
+        )
+
+    except Exception as e:
+        print(f"Error during data export: {e}")
+        return jsonify({"error": "Failed to export data. Please try again later."}), 500
 
 
 # --- YOUTUBE STATS ROUTES ---

@@ -684,11 +684,44 @@ const AppearanceSection = () => {
 const PrivacySection = ({ onLogout }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState('');
+    const [isExporting, setIsExporting] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleExportData = async () => {
+        setIsExporting(true);
+        setError('');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/auth/export`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `creaitr-data-export.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                setError('Failed to export data');
+            }
+        } catch (error) {
+            console.error('Data export failed:', error);
+            setError('An error occurred. Please try again.');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
-        setDeleteError('');
+        setError('');
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_BASE_URL}/auth/account`, {
@@ -703,11 +736,11 @@ const PrivacySection = ({ onLogout }) => {
                 onLogout();
             } else {
                 const data = await response.json();
-                setDeleteError(data.error || 'Failed to delete account');
+                setError(data.error || 'Failed to delete account');
             }
         } catch (error) {
             console.error('Account deletion failed:', error);
-            setDeleteError('An error occurred. Please try again.');
+            setError('An error occurred. Please try again.');
         } finally {
             setIsDeleting(false);
         }
@@ -730,9 +763,17 @@ const PrivacySection = ({ onLogout }) => {
                     <p className="text-slate-400 text-sm mb-4">
                         Download a copy of all your projects, chats, and settings.
                     </p>
-                    <button className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all flex items-center gap-2">
-                        <Download className="w-4 h-4" />
-                        Request Data Export
+                    <button 
+                        onClick={handleExportData}
+                        disabled={isExporting}
+                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all flex items-center gap-2"
+                    >
+                        {isExporting ? (
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4" />
+                        )}
+                        {isExporting ? 'Exporting...' : 'Request Data Export'}
                     </button>
                 </div>
             </CardSpotlight>
@@ -748,9 +789,9 @@ const PrivacySection = ({ onLogout }) => {
                         Permanently delete your account and all associated data. This action cannot be undone.
                     </p>
                     
-                    {deleteError && (
+                    {error && (
                         <div className="mb-4 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                            {deleteError}
+                            {error}
                         </div>
                     )}
 
