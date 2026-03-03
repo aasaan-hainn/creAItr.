@@ -26,34 +26,34 @@ This guide provides step-by-step instructions to deploy the creAItr. application
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         AWS Cloud                            │
-│                                                              │
-│  ┌──────────────┐      ┌─────────────────┐                 │
-│  │ CloudFront   │──────│ S3 Bucket       │                 │
-│  │ (CDN)        │      │ (Frontend)      │                 │
-│  └──────────────┘      └─────────────────┘                 │
-│         │                                                    │
-│         │                                                    │
-│  ┌──────▼───────────────────────────────────┐              │
-│  │  Application Load Balancer (ALB)         │              │
-│  └──────┬───────────────────────────────────┘              │
-│         │                                                    │
-│  ┌──────▼──────────┐      ┌─────────────────┐              │
-│  │ EC2 / Elastic   │──────│ DocumentDB      │              │
-│  │ Beanstalk       │      │ (MongoDB)       │              │
-│  │ (Backend)       │      └─────────────────┘              │
+│                         AWS Cloud                           │
+│                                                             │
+│  ┌──────────────┐      ┌─────────────────┐                  │
+│  │ CloudFront   │──────│ S3 Bucket       │                  │
+│  │ (CDN)        │      │ (Frontend)      │                  │
+│  └──────────────┘      └─────────────────┘                  │
+│         │                                                   │
+│         │                                                   │
+│  ┌──────▼───────────────────────────────────┐               │
+│  │  Application Load Balancer (ALB)         │               │
+│  └──────┬───────────────────────────────────┘               │
+│         │                                                   │
+│  ┌──────▼──────────┐      ┌─────────────────┐               │
+│  │ EC2 / Elastic   │──────│ DocumentDB      │               │
+│  │ Beanstalk       │      │ (MongoDB)       │               │
+│  │ (Backend)       │      └─────────────────┘               │
 │  └─────────────────┘                                        │
-│         │                                                    │
-│  ┌──────▼──────────┐      ┌─────────────────┐              │
-│  │ S3 Bucket       │      │ Secrets Manager │              │
-│  │ (ChromaDB/      │      │ (API Keys)      │              │
-│  │  Uploads)       │      └─────────────────┘              │
+│         │                                                   │
+│  ┌──────▼──────────┐      ┌─────────────────┐               │
+│  │ S3 Bucket       │      │ Secrets Manager │               │
+│  │ (ChromaDB/      │      │ (API Keys)      │               │
+│  │  Uploads)       │      └─────────────────┘               │
 │  └─────────────────┘                                        │
-│                                                              │
-│  ┌─────────────────┐      ┌─────────────────┐              │
-│  │ CloudWatch      │      │ Route 53        │              │
-│  │ (Monitoring)    │      │ (DNS)           │              │
-│  └─────────────────┘      └─────────────────┘              │
+│                                                             │
+│  ┌─────────────────┐      ┌─────────────────┐               │
+│  │ CloudWatch      │      │ Route 53        │               │
+│  │ (Monitoring)    │      │ (DNS)           │               │
+│  └─────────────────┘      └─────────────────┘               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,18 +61,18 @@ This guide provides step-by-step instructions to deploy the creAItr. application
 
 ## 🛠️ AWS Services Required
 
-| Service | Purpose | Estimated Monthly Cost |
-|---------|---------|------------------------|
-| **EC2** or **Elastic Beanstalk** | Backend Flask API hosting | $15-50 (t3.small-medium) |
-| **DocumentDB** | MongoDB-compatible database | $50-200 (smallest instance) |
-| **S3** | Frontend hosting + file storage | $5-20 |
-| **CloudFront** | CDN for frontend | $5-15 |
-| **Application Load Balancer** | Traffic distribution | $16-25 |
-| **Route 53** | DNS management | $0.50-2 |
-| **Secrets Manager** | API key storage | $1-5 |
-| **CloudWatch** | Logging and monitoring | $5-15 |
-| **Certificate Manager** | SSL/TLS certificates | Free |
-| **VPC** | Network isolation | Free (data transfer costs apply) |
+| Service                          | Purpose                         | Estimated Monthly Cost           |
+| -------------------------------- | ------------------------------- | -------------------------------- |
+| **EC2** or **Elastic Beanstalk** | Backend Flask API hosting       | $15-50 (t3.small-medium)         |
+| **DocumentDB**                   | MongoDB-compatible database     | $50-200 (smallest instance)      |
+| **S3**                           | Frontend hosting + file storage | $5-20                            |
+| **CloudFront**                   | CDN for frontend                | $5-15                            |
+| **Application Load Balancer**    | Traffic distribution            | $16-25                           |
+| **Route 53**                     | DNS management                  | $0.50-2                          |
+| **Secrets Manager**              | API key storage                 | $1-5                             |
+| **CloudWatch**                   | Logging and monitoring          | $5-15                            |
+| **Certificate Manager**          | SSL/TLS certificates            | Free                             |
+| **VPC**                          | Network isolation               | Free (data transfer costs apply) |
 
 **Total Estimated Cost: $100-350/month** (varies with traffic and usage)
 
@@ -81,6 +81,7 @@ This guide provides step-by-step instructions to deploy the creAItr. application
 ## 📦 Prerequisites
 
 ### Local Requirements
+
 - AWS Account with billing enabled
 - AWS CLI installed and configured
 - Node.js 18+ and npm
@@ -89,6 +90,7 @@ This guide provides step-by-step instructions to deploy the creAItr. application
 - Domain name (optional but recommended)
 
 ### API Keys & Services
+
 - NVIDIA API Key (for AI model)
 - NewsAPI Key
 - Cloudinary Account (Cloud Name, API Key, API Secret)
@@ -96,6 +98,7 @@ This guide provides step-by-step instructions to deploy the creAItr. application
 - Google OAuth credentials (for authentication)
 
 ### Install AWS CLI
+
 ```bash
 # macOS
 brew install awscli
@@ -110,6 +113,7 @@ sudo ./aws/install
 ```
 
 ### Configure AWS CLI
+
 ```bash
 aws configure
 # Enter:
@@ -124,6 +128,7 @@ aws configure
 ## 🚀 Step 1: AWS Account Setup
 
 ### 1.1 Create AWS Account
+
 1. Go to https://aws.amazon.com/
 2. Click "Create an AWS Account"
 3. Follow the registration process
@@ -131,6 +136,7 @@ aws configure
 5. Verify identity
 
 ### 1.2 Create IAM User for Deployment
+
 ```bash
 # Create IAM user via AWS Console
 # 1. Go to IAM → Users → Add User
@@ -150,6 +156,7 @@ aws configure
 ```
 
 ### 1.3 Set Up Billing Alerts
+
 1. Go to AWS Billing Dashboard
 2. Click "Billing preferences"
 3. Enable "Receive Billing Alerts"
@@ -164,6 +171,7 @@ aws configure
 ### Option A: AWS DocumentDB (Recommended for Production)
 
 #### 2.1 Create DocumentDB Cluster
+
 ```bash
 # Via AWS Console:
 # 1. Go to Amazon DocumentDB
@@ -183,6 +191,7 @@ aws configure
 ```
 
 #### 2.2 Configure Security Group
+
 ```bash
 # Via AWS Console:
 # 1. Go to EC2 → Security Groups
@@ -196,6 +205,7 @@ aws configure
 ```
 
 #### 2.3 Get Connection String
+
 ```bash
 # Via AWS Console:
 # 1. Go to DocumentDB → Clusters → creaitr-db
@@ -210,6 +220,7 @@ wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 ### Option B: MongoDB Atlas (Alternative - Easier Setup)
 
 #### 2.1 Create MongoDB Atlas Account
+
 1. Go to https://www.mongodb.com/cloud/atlas
 2. Sign up for free tier
 3. Create new cluster (M0 Free tier or M10 for production)
@@ -217,11 +228,13 @@ wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 5. Select same region as your EC2 instances
 
 #### 2.2 Configure Network Access
+
 1. Go to Network Access
 2. Add IP Address: `0.0.0.0/0` (allow from anywhere)
 3. Or add specific EC2 IP addresses
 
 #### 2.3 Create Database User
+
 1. Go to Database Access
 2. Add new database user
 3. Username: `creaitr_user`
@@ -229,6 +242,7 @@ wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 5. Database User Privileges: Read and write to any database
 
 #### 2.4 Get Connection String
+
 1. Click "Connect" on your cluster
 2. Choose "Connect your application"
 3. Copy connection string:
@@ -243,6 +257,7 @@ wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 ### Option A: Elastic Beanstalk (Recommended - Easier)
 
 #### 3.1 Prepare Backend for Deployment
+
 ```bash
 cd backend_server
 
@@ -251,6 +266,7 @@ mkdir -p .ebextensions
 ```
 
 Create `.ebextensions/01_packages.config`:
+
 ```yaml
 packages:
   yum:
@@ -260,6 +276,7 @@ packages:
 ```
 
 Create `.ebextensions/02_python.config`:
+
 ```yaml
 option_settings:
   aws:elasticbeanstalk:container:python:
@@ -269,6 +286,7 @@ option_settings:
 ```
 
 #### 3.2 Create Procfile
+
 ```bash
 # Create Procfile in backend_server/
 cat > Procfile << EOF
@@ -277,12 +295,14 @@ EOF
 ```
 
 #### 3.3 Update requirements.txt
+
 ```bash
 # Add gunicorn to requirements.txt
 echo "gunicorn" >> requirements.txt
 ```
 
 #### 3.4 Initialize Elastic Beanstalk
+
 ```bash
 # Install EB CLI
 pip install awsebcli
@@ -301,6 +321,7 @@ eb create creaitr-backend-prod \
 ```
 
 #### 3.5 Configure Environment Variables
+
 ```bash
 # Set environment variables via EB CLI
 eb setenv \
@@ -321,6 +342,7 @@ eb setenv \
 ```
 
 #### 3.6 Deploy Backend
+
 ```bash
 # Deploy application
 eb deploy
@@ -336,6 +358,7 @@ eb open
 ```
 
 #### 3.7 Configure Health Checks
+
 ```bash
 # Via AWS Console:
 # 1. Elastic Beanstalk → Environments → Configuration
@@ -346,16 +369,17 @@ eb open
 ```
 
 Add health check endpoint to `backend.py`:
+
 ```python
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"}), 200
 ```
 
-
 ### Option B: EC2 Manual Setup (More Control)
 
 #### 3.8 Launch EC2 Instance
+
 ```bash
 # Via AWS Console:
 # 1. Go to EC2 → Launch Instance
@@ -375,6 +399,7 @@ def health_check():
 ```
 
 #### 3.9 Connect to EC2 Instance
+
 ```bash
 # Download your key pair (.pem file)
 chmod 400 your-key.pem
@@ -384,6 +409,7 @@ ssh -i your-key.pem ubuntu@[EC2-PUBLIC-IP]
 ```
 
 #### 3.10 Install Dependencies on EC2
+
 ```bash
 # Update system
 sudo apt update && sudo apt upgrade -y
@@ -402,6 +428,7 @@ sudo apt install supervisor -y
 ```
 
 #### 3.11 Clone and Setup Application
+
 ```bash
 # Create application directory
 sudo mkdir -p /var/www/creaitr
@@ -422,6 +449,7 @@ pip install gunicorn
 ```
 
 #### 3.12 Create Environment File
+
 ```bash
 # Create .env file
 cat > /var/www/creaitr/backend_server/.env << EOF
@@ -445,12 +473,14 @@ chmod 600 /var/www/creaitr/backend_server/.env
 ```
 
 #### 3.13 Configure Supervisor
+
 ```bash
 # Create supervisor config
 sudo nano /etc/supervisor/conf.d/creaitr.conf
 ```
 
 Add this configuration:
+
 ```ini
 [program:creaitr]
 directory=/var/www/creaitr/backend_server
@@ -480,12 +510,14 @@ sudo supervisorctl status creaitr
 ```
 
 #### 3.14 Configure Nginx
+
 ```bash
 # Create nginx config
 sudo nano /etc/nginx/sites-available/creaitr
 ```
 
 Add this configuration:
+
 ```nginx
 server {
     listen 80;
@@ -503,7 +535,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Increase timeout for streaming responses
         proxy_read_timeout 300s;
         proxy_connect_timeout 75s;
@@ -529,6 +561,7 @@ sudo systemctl enable nginx
 ```
 
 #### 3.15 Test Backend
+
 ```bash
 # Check if backend is running
 curl http://localhost:5000/health
@@ -542,6 +575,7 @@ curl http://[EC2-PUBLIC-IP]/health
 ## 🌐 Step 4: Frontend Deployment (S3 + CloudFront)
 
 ### 4.1 Build Frontend
+
 ```bash
 # On your local machine
 cd frontend
@@ -557,6 +591,7 @@ npm run build
 ```
 
 ### 4.2 Create S3 Bucket for Frontend
+
 ```bash
 # Create bucket (replace with unique name)
 aws s3 mb s3://creaitr-frontend --region us-east-1
@@ -568,6 +603,7 @@ aws s3 website s3://creaitr-frontend \
 ```
 
 ### 4.3 Configure Bucket Policy
+
 ```bash
 # Create bucket policy file
 cat > bucket-policy.json << EOF
@@ -592,6 +628,7 @@ aws s3api put-bucket-policy \
 ```
 
 ### 4.4 Upload Frontend Files
+
 ```bash
 # Upload dist folder to S3
 aws s3 sync dist/ s3://creaitr-frontend/ \
@@ -605,6 +642,7 @@ aws s3 cp dist/index.html s3://creaitr-frontend/index.html \
 ```
 
 ### 4.5 Create CloudFront Distribution
+
 ```bash
 # Via AWS Console:
 # 1. Go to CloudFront → Create Distribution
@@ -627,6 +665,7 @@ aws s3 cp dist/index.html s3://creaitr-frontend/index.html \
 ```
 
 ### 4.6 Configure Error Pages for SPA
+
 ```bash
 # Via AWS Console:
 # 1. CloudFront → Distributions → Your distribution
@@ -641,7 +680,9 @@ aws s3 cp dist/index.html s3://creaitr-frontend/index.html \
 ```
 
 ### 4.7 Create Deployment Script
+
 Create `frontend/deploy.sh`:
+
 ```bash
 #!/bin/bash
 
@@ -679,6 +720,7 @@ chmod +x deploy.sh
 ## 📦 Step 5: File Storage (S3 for ChromaDB)
 
 ### 5.1 Create S3 Bucket for Data
+
 ```bash
 # Create bucket for ChromaDB and uploads
 aws s3 mb s3://creaitr-data --region us-east-1
@@ -689,6 +731,7 @@ aws s3api put-object --bucket creaitr-data --key uploads/
 ```
 
 ### 5.2 Configure Bucket Versioning
+
 ```bash
 # Enable versioning for data protection
 aws s3api put-bucket-versioning \
@@ -697,6 +740,7 @@ aws s3api put-bucket-versioning \
 ```
 
 ### 5.3 Configure Lifecycle Policy
+
 ```bash
 # Create lifecycle policy to manage costs
 cat > lifecycle-policy.json << EOF
@@ -744,7 +788,7 @@ def sync_chromadb_from_s3():
     """Download ChromaDB from S3 to local"""
     local_db_path = os.getenv('DB_PATH', './my_local_db')
     os.makedirs(local_db_path, exist_ok=True)
-    
+
     paginator = s3_client.get_paginator('list_objects_v2')
     for page in paginator.paginate(Bucket=BUCKET_NAME, Prefix=CHROMADB_PREFIX):
         if 'Contents' in page:
@@ -765,11 +809,13 @@ sync_chromadb_from_s3()
 ```
 
 Add boto3 to `requirements.txt`:
+
 ```bash
 echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 5.5 Configure IAM Role for EC2/EB
+
 ```bash
 # Via AWS Console:
 # 1. Go to IAM → Roles
@@ -790,10 +836,7 @@ echo "boto3" >> backend_server/requirements.txt
         "s3:DeleteObject",
         "s3:ListBucket"
       ],
-      "Resource": [
-        "arn:aws:s3:::creaitr-data",
-        "arn:aws:s3:::creaitr-data/*"
-      ]
+      "Resource": ["arn:aws:s3:::creaitr-data", "arn:aws:s3:::creaitr-data/*"]
     }
   ]
 }
@@ -804,6 +847,7 @@ echo "boto3" >> backend_server/requirements.txt
 ## 🔒 Step 6: Domain & SSL Setup
 
 ### 6.1 Register Domain (if you don't have one)
+
 ```bash
 # Via AWS Route 53:
 # 1. Go to Route 53 → Registered domains
@@ -812,6 +856,7 @@ echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 6.2 Create Hosted Zone
+
 ```bash
 # If domain registered elsewhere:
 # 1. Route 53 → Hosted zones → Create hosted zone
@@ -823,6 +868,7 @@ echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 6.3 Request SSL Certificate
+
 ```bash
 # Via AWS Certificate Manager:
 # 1. Go to Certificate Manager (us-east-1 region for CloudFront)
@@ -837,6 +883,7 @@ echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 6.4 Configure DNS Records
+
 ```bash
 # Via Route 53:
 # 1. Go to Hosted zones → your-domain.com
@@ -863,6 +910,7 @@ echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 6.5 Update CloudFront with SSL
+
 ```bash
 # Via AWS Console:
 # 1. CloudFront → Distributions → Your distribution → Edit
@@ -873,6 +921,7 @@ echo "boto3" >> backend_server/requirements.txt
 ```
 
 ### 6.6 Configure SSL for Backend (if using EC2)
+
 ```bash
 # SSH into EC2 instance
 ssh -i your-key.pem ubuntu@[EC2-IP]
@@ -892,6 +941,7 @@ sudo certbot --nginx -d api.your-domain.com
 ## 🔐 Step 7: Environment Variables & Secrets
 
 ### 7.1 Store Secrets in AWS Secrets Manager
+
 ```bash
 # Create secret for API keys
 aws secretsmanager create-secret \
@@ -918,6 +968,7 @@ aws secretsmanager create-secret \
 ### 7.2 Update Backend to Use Secrets Manager
 
 Add to `backend.py`:
+
 ```python
 import boto3
 import json
@@ -943,6 +994,7 @@ if api_secrets:
 ```
 
 ### 7.3 Grant IAM Permissions
+
 ```bash
 # Attach policy to EC2/EB role to read secrets
 # Via AWS Console:
@@ -957,17 +1009,12 @@ if api_secrets:
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "secretsmanager:GetSecretValue"
-      ],
-      "Resource": [
-        "arn:aws:secretsmanager:us-east-1:*:secret:creaitr/*"
-      ]
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": ["arn:aws:secretsmanager:us-east-1:*:secret:creaitr/*"]
     }
   ]
 }
 ```
-
 
 ---
 
@@ -976,6 +1023,7 @@ if api_secrets:
 ### 8.1 Configure CloudWatch Logs
 
 #### For Elastic Beanstalk:
+
 ```bash
 # Via AWS Console:
 # 1. Elastic Beanstalk → Configuration → Software
@@ -985,6 +1033,7 @@ if api_secrets:
 ```
 
 #### For EC2:
+
 ```bash
 # Install CloudWatch agent
 wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
@@ -995,6 +1044,7 @@ sudo nano /opt/aws/amazon-cloudwatch-agent/etc/config.json
 ```
 
 Add configuration:
+
 ```json
 {
   "logs": {
@@ -1030,20 +1080,28 @@ Add configuration:
     "metrics_collected": {
       "cpu": {
         "measurement": [
-          {"name": "cpu_usage_idle", "rename": "CPU_IDLE", "unit": "Percent"},
-          {"name": "cpu_usage_iowait", "rename": "CPU_IOWAIT", "unit": "Percent"}
+          { "name": "cpu_usage_idle", "rename": "CPU_IDLE", "unit": "Percent" },
+          {
+            "name": "cpu_usage_iowait",
+            "rename": "CPU_IOWAIT",
+            "unit": "Percent"
+          }
         ],
         "totalcpu": false
       },
       "disk": {
         "measurement": [
-          {"name": "used_percent", "rename": "DISK_USED", "unit": "Percent"}
+          { "name": "used_percent", "rename": "DISK_USED", "unit": "Percent" }
         ],
         "resources": ["*"]
       },
       "mem": {
         "measurement": [
-          {"name": "mem_used_percent", "rename": "MEM_USED", "unit": "Percent"}
+          {
+            "name": "mem_used_percent",
+            "rename": "MEM_USED",
+            "unit": "Percent"
+          }
         ]
       }
     }
@@ -1066,6 +1124,7 @@ sudo systemctl enable amazon-cloudwatch-agent
 ### 8.2 Create CloudWatch Alarms
 
 #### CPU Utilization Alarm:
+
 ```bash
 aws cloudwatch put-metric-alarm \
   --alarm-name creaitr-high-cpu \
@@ -1081,6 +1140,7 @@ aws cloudwatch put-metric-alarm \
 ```
 
 #### Memory Alarm:
+
 ```bash
 aws cloudwatch put-metric-alarm \
   --alarm-name creaitr-high-memory \
@@ -1096,6 +1156,7 @@ aws cloudwatch put-metric-alarm \
 ```
 
 #### Disk Space Alarm:
+
 ```bash
 aws cloudwatch put-metric-alarm \
   --alarm-name creaitr-low-disk \
@@ -1111,6 +1172,7 @@ aws cloudwatch put-metric-alarm \
 ```
 
 ### 8.3 Create SNS Topic for Alerts
+
 ```bash
 # Create SNS topic
 aws sns create-topic --name creaitr-alerts
@@ -1125,6 +1187,7 @@ aws sns subscribe \
 ```
 
 ### 8.4 Set Up CloudWatch Dashboard
+
 ```bash
 # Via AWS Console:
 # 1. CloudWatch → Dashboards → Create dashboard
@@ -1142,6 +1205,7 @@ aws sns subscribe \
 ### 8.5 Application Performance Monitoring
 
 Add logging to `backend.py`:
+
 ```python
 import logging
 from logging.handlers import RotatingFileHandler
@@ -1189,18 +1253,18 @@ def handle_exception(e):
 
 ### Monthly Cost Breakdown (Estimated)
 
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| **EC2 (t3.small)** | 2 vCPU, 2GB RAM, 24/7 | $15-20 |
-| **DocumentDB (db.t3.medium)** | 1 instance | $50-100 |
-| **S3 Storage** | 50GB data + requests | $5-10 |
-| **CloudFront** | 100GB transfer | $10-15 |
-| **Application Load Balancer** | Standard | $16-20 |
-| **Route 53** | 1 hosted zone | $0.50 |
-| **Secrets Manager** | 2 secrets | $1 |
-| **CloudWatch** | Logs + metrics | $5-10 |
-| **Data Transfer** | Outbound | $5-20 |
-| **NAT Gateway** (if using private subnets) | Optional | $32 |
+| Service                                    | Configuration         | Monthly Cost |
+| ------------------------------------------ | --------------------- | ------------ |
+| **EC2 (t3.small)**                         | 2 vCPU, 2GB RAM, 24/7 | $15-20       |
+| **DocumentDB (db.t3.medium)**              | 1 instance            | $50-100      |
+| **S3 Storage**                             | 50GB data + requests  | $5-10        |
+| **CloudFront**                             | 100GB transfer        | $10-15       |
+| **Application Load Balancer**              | Standard              | $16-20       |
+| **Route 53**                               | 1 hosted zone         | $0.50        |
+| **Secrets Manager**                        | 2 secrets             | $1           |
+| **CloudWatch**                             | Logs + metrics        | $5-10        |
+| **Data Transfer**                          | Outbound              | $5-20        |
+| **NAT Gateway** (if using private subnets) | Optional              | $32          |
 
 **Total: $107-206/month** (without NAT Gateway)
 **Total: $139-238/month** (with NAT Gateway)
@@ -1216,6 +1280,7 @@ def handle_exception(e):
 7. **CloudWatch Log Retention**: Reduce to 3-7 days instead of indefinite
 
 ### Free Tier Benefits (First 12 Months)
+
 - EC2: 750 hours/month of t2.micro or t3.micro
 - S3: 5GB storage, 20,000 GET requests, 2,000 PUT requests
 - CloudFront: 50GB data transfer out, 2,000,000 HTTP/HTTPS requests
@@ -1227,6 +1292,7 @@ def handle_exception(e):
 ## ✅ Deployment Checklist
 
 ### Pre-Deployment
+
 - [ ] AWS account created and billing configured
 - [ ] IAM user created with necessary permissions
 - [ ] AWS CLI installed and configured
@@ -1236,12 +1302,14 @@ def handle_exception(e):
 - [ ] Code tested locally
 
 ### Database Setup
+
 - [ ] MongoDB/DocumentDB cluster created
 - [ ] Database security groups configured
 - [ ] Connection string obtained and tested
 - [ ] Database user created with proper permissions
 
 ### Backend Deployment
+
 - [ ] EC2 instance launched OR Elastic Beanstalk environment created
 - [ ] Security groups configured (ports 22, 80, 443, 5000)
 - [ ] Application code deployed
@@ -1253,6 +1321,7 @@ def handle_exception(e):
 - [ ] Backend accessible via public IP/domain
 
 ### Frontend Deployment
+
 - [ ] Frontend built with production API URL
 - [ ] S3 bucket created for frontend
 - [ ] Static website hosting enabled
@@ -1262,6 +1331,7 @@ def handle_exception(e):
 - [ ] Frontend accessible via CloudFront URL
 
 ### File Storage
+
 - [ ] S3 bucket created for data (ChromaDB, uploads)
 - [ ] Bucket policies configured
 - [ ] IAM roles configured for S3 access
@@ -1269,6 +1339,7 @@ def handle_exception(e):
 - [ ] File upload/download tested
 
 ### Domain & SSL
+
 - [ ] Domain registered or configured
 - [ ] Route 53 hosted zone created
 - [ ] SSL certificate requested and validated
@@ -1278,6 +1349,7 @@ def handle_exception(e):
 - [ ] HTTPS working for both frontend and backend
 
 ### Security
+
 - [ ] Secrets stored in AWS Secrets Manager
 - [ ] IAM roles configured with least privilege
 - [ ] Security groups properly restricted
@@ -1286,6 +1358,7 @@ def handle_exception(e):
 - [ ] Database not publicly accessible
 
 ### Monitoring
+
 - [ ] CloudWatch logs configured
 - [ ] CloudWatch alarms created
 - [ ] SNS topic created for alerts
@@ -1294,6 +1367,7 @@ def handle_exception(e):
 - [ ] Application logging implemented
 
 ### Testing
+
 - [ ] Frontend loads correctly
 - [ ] User registration works
 - [ ] User login works
@@ -1306,6 +1380,7 @@ def handle_exception(e):
 - [ ] Cross-browser compatibility tested
 
 ### Post-Deployment
+
 - [ ] DNS propagation complete (24-48 hours)
 - [ ] SSL certificates active
 - [ ] Monitoring alerts working
@@ -1334,14 +1409,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Deploy to Elastic Beanstalk
         run: |
           cd backend_server
@@ -1352,30 +1427,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-      
+          node-version: "18"
+
       - name: Build frontend
         run: |
           cd frontend
           npm ci
           npm run build
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Deploy to S3
         run: |
           cd frontend
           aws s3 sync dist/ s3://creaitr-frontend/ --delete
-      
+
       - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \
@@ -1384,6 +1459,7 @@ jobs:
 ```
 
 Add secrets to GitHub:
+
 1. Go to repository → Settings → Secrets and variables → Actions
 2. Add:
    - `AWS_ACCESS_KEY_ID`
@@ -1397,6 +1473,7 @@ Add secrets to GitHub:
 ### Backend Issues
 
 **Problem: Backend not starting**
+
 ```bash
 # Check logs
 sudo supervisorctl tail creaitr stderr
@@ -1413,6 +1490,7 @@ eb restart
 ```
 
 **Problem: Database connection failed**
+
 ```bash
 # Test connection
 python3 -c "from pymongo import MongoClient; client = MongoClient('YOUR_MONGODB_URI'); print(client.server_info())"
@@ -1422,6 +1500,7 @@ python3 -c "from pymongo import MongoClient; client = MongoClient('YOUR_MONGODB_
 ```
 
 **Problem: High memory usage**
+
 ```bash
 # Check memory
 free -h
@@ -1436,15 +1515,18 @@ sudo supervisorctl restart creaitr
 ### Frontend Issues
 
 **Problem: API calls failing (CORS)**
+
 - Check backend CORS configuration
 - Verify API URL in frontend config
 - Check CloudFront origin settings
 
 **Problem: 404 on page refresh**
+
 - Verify CloudFront error pages configured
 - Check S3 bucket policy
 
 **Problem: Old content showing**
+
 ```bash
 # Invalidate CloudFront cache
 aws cloudfront create-invalidation \
@@ -1455,17 +1537,20 @@ aws cloudfront create-invalidation \
 ### SSL Issues
 
 **Problem: Certificate not validating**
+
 - Wait 30 minutes for DNS propagation
 - Check DNS records in Route 53
 - Verify CNAME records added
 
 **Problem: Mixed content warnings**
+
 - Ensure all API calls use HTTPS
 - Check external resources (images, scripts) use HTTPS
 
 ### Performance Issues
 
 **Problem: Slow response times**
+
 ```bash
 # Check CPU/Memory
 top
@@ -1481,6 +1566,7 @@ ping google.com
 ```
 
 **Problem: High costs**
+
 - Review CloudWatch metrics
 - Check S3 storage usage
 - Review CloudFront data transfer
@@ -1491,6 +1577,7 @@ ping google.com
 ## 📚 Additional Resources
 
 ### AWS Documentation
+
 - [Elastic Beanstalk Developer Guide](https://docs.aws.amazon.com/elasticbeanstalk/)
 - [EC2 User Guide](https://docs.aws.amazon.com/ec2/)
 - [S3 User Guide](https://docs.aws.amazon.com/s3/)
@@ -1498,11 +1585,13 @@ ping google.com
 - [DocumentDB Developer Guide](https://docs.aws.amazon.com/documentdb/)
 
 ### Tutorials
+
 - [Deploy Flask App to AWS](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create-deploy-python-flask.html)
 - [Host Static Website on S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html)
 - [Configure CloudFront with S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/GettingStarted.SimpleDistribution.html)
 
 ### Tools
+
 - [AWS Calculator](https://calculator.aws/) - Estimate costs
 - [AWS Well-Architected Tool](https://aws.amazon.com/well-architected-tool/) - Review architecture
 - [AWS Trusted Advisor](https://aws.amazon.com/premiumsupport/technology/trusted-advisor/) - Optimization recommendations
@@ -1541,6 +1630,7 @@ If you encounter issues:
 **Congratulations! Your creAItr. application is now live on AWS! 🎉**
 
 Remember to:
+
 - Monitor costs regularly
 - Keep dependencies updated
 - Review security settings periodically
@@ -1549,4 +1639,4 @@ Remember to:
 
 ---
 
-*Last updated: March 2026*
+_Last updated: March 2026_
