@@ -17,6 +17,7 @@ from mongodb import projects_collection, users_collection, chats_collection, tas
 from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
+from cloudinary_config import upload_image, upload_video
 from auth import (
     hash_password,
     verify_password,
@@ -101,7 +102,14 @@ def register():
         {
             "message": "User registered successfully",
             "token": token,
-            "user": {"id": user_id, "email": email, "socialAccounts": social_accounts},
+            "user": {
+                "id": user_id,
+                "email": email,
+                "socialAccounts": social_accounts,
+                "fullName": "",
+                "picture": "",
+                "provider": "email",
+            },
         }
     ), 201
 
@@ -138,6 +146,9 @@ def login():
                 "id": user_id,
                 "email": user["email"],
                 "socialAccounts": user.get("socialAccounts", []),
+                "fullName": user.get("name", ""),
+                "picture": user.get("picture", ""),
+                "provider": "google" if user.get("googleId") else "email",
             },
         }
     )
@@ -157,9 +168,28 @@ def google_login():
         return jsonify({"error": "Invalid Google token"}), 401
 
     email = id_info.get("email").lower()
+    google_picture = id_info.get("picture")
 
     # Check if user exists
     user = users_collection.find_one({"email": email})
+
+    # Upload to Cloudinary if needed
+    final_picture = None
+    if google_picture:
+        try:
+            # Upload if new user or current picture is missing or still a Google URL
+            if (
+                not user
+                or not user.get("picture")
+                or "googleusercontent.com" in user.get("picture")
+            ):
+                upload_res = upload_image(google_picture, folder="hello-chat/profiles")
+                final_picture = upload_res["url"]
+            else:
+                final_picture = user.get("picture")
+        except Exception as e:
+            print(f"Cloudinary upload failed: {e}")
+            final_picture = user.get("picture") if user else google_picture
 
     if not user:
         # Create new user
@@ -170,24 +200,26 @@ def google_login():
             "createdAt": datetime.datetime.now().isoformat(),
             "googleId": id_info.get("id"),
             "name": id_info.get("name"),
-            "picture": id_info.get("picture"),
+            "picture": final_picture,
         }
         result = users_collection.insert_one(user)
         user_id = str(result.inserted_id)
     else:
         user_id = str(user["_id"])
-        # Update google info if missing
-        if "googleId" not in user:
-            users_collection.update_one(
-                {"_id": user["_id"]},
-                {
-                    "$set": {
-                        "googleId": id_info.get("id"),
-                        "name": user.get("name") or id_info.get("name"),
-                        "picture": user.get("picture") or id_info.get("picture"),
-                    }
-                },
-            )
+        # Update google info
+        update_data = {
+            "googleId": id_info.get("id"),
+            "name": user.get("name") or id_info.get("name"),
+        }
+        if final_picture:
+            update_data["picture"] = final_picture
+
+        users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": update_data},
+        )
+        # Refresh user data for response
+        user = users_collection.find_one({"_id": user["_id"]})
 
     # Generate JWT
     jwt_token = generate_token(user_id, email)
@@ -200,8 +232,9 @@ def google_login():
                 "id": user_id,
                 "email": email,
                 "socialAccounts": user.get("socialAccounts", []),
-                "name": user.get("name") or id_info.get("name"),
-                "picture": user.get("picture") or id_info.get("picture"),
+                "fullName": user.get("name", ""),
+                "picture": user.get("picture", ""),
+                "provider": "google",
             },
         }
     )
@@ -236,6 +269,9 @@ def verify_auth():
                 "id": str(user["_id"]),
                 "email": user["email"],
                 "socialAccounts": user.get("socialAccounts", []),
+                "fullName": user.get("name", ""),
+                "picture": user.get("picture", ""),
+                "provider": "google" if user.get("googleId") else "email",
             },
         }
     )
@@ -292,6 +328,7 @@ def update_profile():
             "user": {
                 "id": str(user["_id"]),
                 "email": user["email"],
+                "socialAccounts": user.get("socialAccounts", []),
                 "fullName": user.get("name", ""),
                 "picture": user.get("picture", ""),
                 "provider": "google" if user.get("googleId") else "email",
@@ -1676,7 +1713,6 @@ def add_chat_message(project_id):
 @app.route("/projects/<project_id>/workspace/upload", methods=["POST"])
 def upload_media(project_id):
     """Upload media to Cloudinary and save reference"""
-    from cloudinary_config import upload_image, upload_video
 
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400

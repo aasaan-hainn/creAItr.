@@ -313,12 +313,12 @@ const YouTubeSection = () => {
     const fetchYouTubeChannel = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE_URL}/youtube/channel`, {
+            const response = await fetch(`${API_BASE_URL}/stats/youtube/channel`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                setYoutubeChannel(data.channel_id);
+                setYoutubeChannel(data.channelId);
             }
         } catch (error) {
             console.error('Failed to fetch YouTube channel:', error);
@@ -331,13 +331,13 @@ const YouTubeSection = () => {
         if (!channelInput.trim()) return;
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE_URL}/youtube/channel`, {
+            const response = await fetch(`${API_BASE_URL}/stats/youtube/channel`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ channel_id: channelInput })
+                body: JSON.stringify({ channelId: channelInput })
             });
             if (response.ok) {
                 setYoutubeChannel(channelInput);
