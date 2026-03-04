@@ -66,8 +66,12 @@ except Exception as e:
 
 # --- API ROUTES ---
 
+#--- Home Route ---
+@app.route("/")
+def home():
+    return "creAItr backend running", 200
 
-# --- AUTHENTICATION ROUTES ---
+#--- AUTHENTICATION ROUTES ---
 
 
 @app.route("/auth/register", methods=["POST"])
@@ -2365,5 +2369,5 @@ def rename_chat_session(chat_id):
     return jsonify({"error": "Chat session not found or access denied"}), 404
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=config.PORT, debug=True)
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=config.PORT, debug=True)
