@@ -53,15 +53,39 @@ from youtube_stats import (
 app = Flask(__name__)
 CORS(app)
 
-print("Initializing NVIDIA Client...")
-nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_API_KEY)
+# Health Check Route (Required for AWS Elastic Beanstalk)
+@app.route("/health")
+def health_check():
+    """Health check endpoint for AWS Load Balancer"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "version": "1.0.0"
+    }), 200
 
-print("Initializing Gemini Client...")
-try:
-    genai_client = genai.Client(api_key=config.GEMINI_API_KEY)
-except Exception as e:
-    print(f"Warning: Gemini Client failed to initialize: {e}")
-    genai_client = None
+print("Initializing Clients...")
+
+# NVIDIA Client Initialization
+nvidia_client = None
+if config.NVIDIA_API_KEY and config.NVIDIA_BASE_URL:
+    try:
+        print("Initializing NVIDIA Client...")
+        nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_API_KEY)
+    except Exception as e:
+        print(f"Warning: NVIDIA Client failed to initialize: {e}")
+else:
+    print("Warning: NVIDIA_API_KEY or NVIDIA_BASE_URL missing. AI features will be limited.")
+
+# Gemini Client Initialization
+genai_client = None
+if config.GEMINI_API_KEY:
+    try:
+        print("Initializing Gemini Client...")
+        genai_client = genai.Client(api_key=config.GEMINI_API_KEY)
+    except Exception as e:
+        print(f"Warning: Gemini Client failed to initialize: {e}")
+else:
+    print("Warning: GEMINI_API_KEY missing. Multimodal features will be limited.")
 
 
 # --- API ROUTES ---

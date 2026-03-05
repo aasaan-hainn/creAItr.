@@ -1,3 +1,4 @@
+gunicorn
 flask
 flask-cors
 feedparser
@@ -16,5 +17,3 @@ matplotlib
 pandas
 numpy
 google-genai
-gunicorn
-bson
