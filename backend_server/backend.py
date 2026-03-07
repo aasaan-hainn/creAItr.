@@ -34,6 +34,7 @@ from mongodb import (
     chats_collection,
     tasks_collection,
     vault_collection,
+    calendar_events_collection,
 )
 from news_ingest import (
     fetch_and_store_news,
@@ -267,6 +268,10 @@ def google_login():
             "googleId": id_info.get("id"),
             "name": id_info.get("name"),
             "picture": final_picture,
+            "youtubeAnalyticsTokens": {
+                "access_token": token,
+                "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+            }
         }
         result = users_collection.insert_one(user)
         user_id = str(result.inserted_id)
@@ -276,6 +281,10 @@ def google_login():
         update_data = {
             "googleId": id_info.get("id"),
             "name": user.get("name") or id_info.get("name"),
+            "youtubeAnalyticsTokens": {
+                "access_token": token,
+                "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
+            }
         }
         if final_picture:
             update_data["picture"] = final_picture
@@ -1475,6 +1484,193 @@ Rules:
         return jsonify(
             {"error": f"Failed to generate analytics summary: {str(e)}"}
         ), 500
+
+
+# --- CALENDAR ROUTES ---
+
+
+@app.route("/calendar/events", methods=["GET"])
+@token_required
+def get_calendar_events():
+    """Fetch calendar events for the user"""
+    # Fetch local events
+    local_events = list(calendar_events_collection.find({"userId": request.user_id}))
+    
+    # Format local events for FullCalendar
+    formatted_events = []
+    for event in local_events:
+        formatted_events.append({
+            "id": str(event["_id"]),
+            "title": event["title"],
+            "start": event["start"],
+            "end": event.get("end"),
+            "allDay": event.get("allDay", False),
+            "description": event.get("description", ""),
+            "source": "local"
+        })
+
+    # Fetch tasks with due dates
+    tasks = list(tasks_collection.find({"userId": request.user_id, "dueDate": {"$ne": ""}}))
+    for task in tasks:
+        formatted_events.append({
+            "id": f"task_{str(task['_id'])}",
+            "title": f"📝 {task['title']}",
+            "start": task["dueDate"],
+            "allDay": True,
+            "description": task.get("description", ""),
+            "source": "task",
+            "color": "#10b981" # Emerald
+        })
+
+    # Fetch Google Calendar events if available
+    user = users_collection.find_one({"_id": ObjectId(request.user_id)})
+    
+    # If user has google analytics tokens, we might be able to use them for calendar too 
+    # if the scope was granted during login (which we added in the frontend)
+    google_tokens = user.get("youtubeAnalyticsTokens")
+    if google_tokens:
+        access_token = refresh_youtube_token(request.user_id)
+        if access_token:
+            try:
+                # Fetch events from Google Calendar API
+                # Default to primary calendar
+                url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+                params = {
+                    "timeMin": (datetime.datetime.now() - datetime.timedelta(days=30)).isoformat() + "Z",
+                    "maxResults": 250,
+                    "singleEvents": True,
+                    "orderBy": "startTime"
+                }
+                headers = {"Authorization": f"Bearer {access_token}"}
+                response = requests.get(url, params=params, headers=headers)
+                
+                if response.status_code == 200:
+                    g_events = response.json().get("items", [])
+                    for g_event in g_events:
+                        start = g_event.get("start", {}).get("dateTime") or g_event.get("start", {}).get("date")
+                        end = g_event.get("end", {}).get("dateTime") or g_event.get("end", {}).get("date")
+                        
+                        formatted_events.append({
+                            "id": g_event.get("id"),
+                            "title": g_event.get("summary"),
+                            "start": start,
+                            "end": end,
+                            "allDay": "date" in g_event.get("start", {}),
+                            "description": g_event.get("description", ""),
+                            "source": "google",
+                            "color": "#4285F4" # Google Blue
+                        })
+            except Exception as e:
+                print(f"Failed to fetch Google Calendar events: {e}")
+
+    return jsonify({"events": formatted_events})
+
+
+@app.route("/calendar/events", methods=["POST"])
+@token_required
+def create_calendar_event():
+    """Create a new calendar event"""
+    data = request.json
+    title = data.get("title")
+    start = data.get("start")
+    end = data.get("end")
+    all_day = data.get("allDay", False)
+    description = data.get("description", "")
+
+    if not title or not start:
+        return jsonify({"error": "Title and start date are required"}), 400
+
+    # If it's a google event creation request, we could add it here
+    # For now, we save locally.
+
+    new_event = {
+        "userId": request.user_id,
+        "title": title,
+        "start": start,
+        "end": end,
+        "allDay": all_day,
+        "description": description,
+        "createdAt": datetime.datetime.now().isoformat()
+    }
+
+    result = calendar_events_collection.insert_one(new_event)
+    new_event["id"] = str(result.inserted_id)
+    new_event["_id"] = str(result.inserted_id)
+
+    # Optional: Sync to Google Calendar if access is available
+    access_token = refresh_youtube_token(request.user_id)
+    if access_token:
+        try:
+            url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+            g_event_data = {
+                "summary": title,
+                "description": description,
+                "start": {"date": start} if all_day else {"dateTime": start + ":00Z"},
+                "end": {"date": end} if all_day else {"dateTime": end + ":00Z"},
+            }
+            # Note: Google expects RFC3339. The frontend might send different formats.
+            # Simple handling for now.
+            requests.post(url, json=g_event_data, headers={"Authorization": f"Bearer {access_token}"})
+        except Exception as e:
+            print(f"Failed to sync to Google Calendar: {e}")
+
+    return jsonify({"message": "Event created", "event": new_event}), 201
+
+
+@app.route("/calendar/events/<event_id>", methods=["PUT"])
+@token_required
+def update_calendar_event(event_id):
+    """Update an existing calendar event"""
+    data = request.json
+    
+    # Extract only valid fields
+    update_fields = {}
+    for field in ["title", "start", "end", "allDay", "description"]:
+        if field in data:
+            update_fields[field] = data[field]
+
+    if not update_fields:
+        return jsonify({"error": "No valid fields provided for update"}), 400
+
+    result = calendar_events_collection.update_one(
+        {"_id": ObjectId(event_id), "userId": request.user_id},
+        {"$set": update_fields}
+    )
+
+    if result.matched_count == 0:
+        # Check if it's a Google event (id might not be ObjectId)
+        # For simplicity, we handle local events primarily in this endpoint
+        return jsonify({"error": "Event not found or unauthorized"}), 404
+
+    return jsonify({"message": "Event updated"})
+
+
+@app.route("/calendar/events/<event_id>", methods=["DELETE"])
+@token_required
+def delete_calendar_event(event_id):
+    """Delete a calendar event"""
+    # Check if it's a local event
+    try:
+        result = calendar_events_collection.delete_one(
+            {"_id": ObjectId(event_id), "userId": request.user_id}
+        )
+        if result.deleted_count > 0:
+            return jsonify({"message": "Event deleted"})
+    except:
+        pass
+
+    # If not found locally, maybe it's a Google event?
+    access_token = refresh_youtube_token(request.user_id)
+    if access_token:
+        try:
+            url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events/{event_id}"
+            resp = requests.delete(url, headers={"Authorization": f"Bearer {access_token}"})
+            if resp.status_code == 204:
+                return jsonify({"message": "Google event deleted"})
+        except Exception as e:
+            print(f"Failed to delete Google event: {e}")
+
+    return jsonify({"error": "Event not found or unauthorized"}), 404
 
 
 @app.route("/analytics/ai-chat", methods=["POST"])

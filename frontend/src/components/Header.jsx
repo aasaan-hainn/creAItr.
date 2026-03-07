@@ -12,6 +12,7 @@ const Header = () => {
         { label: "Home", href: "/" },
         { label: "Projects", href: "/my-projects" },
         { label: "Trends", href: "/trends" },
+        { label: "Calendar", href: "/calendar" },
         { label: "Support", href: "/support" },
     ];
 
@@ -22,7 +23,8 @@ const Header = () => {
         if (path === '/') return 0;
         if (path.startsWith('/my-projects')) return 1;
         if (path.startsWith('/trends')) return 2;
-        if (path.startsWith('/support')) return 3;
+        if (path.startsWith('/calendar')) return 3;
+        if (path.startsWith('/support')) return 4;
         return -1; // No active index for settings or other pages
     };
 
