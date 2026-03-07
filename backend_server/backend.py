@@ -13,6 +13,7 @@ from bson import ObjectId
 
 import config
 
+
 class MongoJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, ObjectId):
@@ -21,12 +22,24 @@ class MongoJSONEncoder(json.JSONEncoder):
             return obj.isoformat()
         return super().default(obj)
 
+
 def json_util_dumps(obj):
     return json.dumps(obj, cls=MongoJSONEncoder, indent=2)
 
+
 from database import collection
-from mongodb import projects_collection, users_collection, chats_collection, tasks_collection
-from news_ingest import fetch_and_store_news, fetch_newsapi_data, clear_existing_news
+from mongodb import (
+    projects_collection,
+    users_collection,
+    chats_collection,
+    tasks_collection,
+)
+from news_ingest import (
+    fetch_and_store_news,
+    fetch_newsapi_data,
+    clear_existing_news,
+    fetch_trends,
+)
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
 from cloudinary_config import upload_image, upload_video
@@ -53,15 +66,19 @@ from youtube_stats import (
 app = Flask(__name__)
 CORS(app)
 
+
 # Health Check Route (Required for AWS Elastic Beanstalk)
 @app.route("/health")
 def health_check():
     """Health check endpoint for AWS Load Balancer"""
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "version": "1.0.0"
-    }), 200
+    return jsonify(
+        {
+            "status": "healthy",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "version": "1.0.0",
+        }
+    ), 200
+
 
 print("Initializing Clients...")
 
@@ -70,11 +87,15 @@ nvidia_client = None
 if config.NVIDIA_API_KEY and config.NVIDIA_BASE_URL:
     try:
         print("Initializing NVIDIA Client...")
-        nvidia_client = OpenAI(base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_API_KEY)
+        nvidia_client = OpenAI(
+            base_url=config.NVIDIA_BASE_URL, api_key=config.NVIDIA_API_KEY
+        )
     except Exception as e:
         print(f"Warning: NVIDIA Client failed to initialize: {e}")
 else:
-    print("Warning: NVIDIA_API_KEY or NVIDIA_BASE_URL missing. AI features will be limited.")
+    print(
+        "Warning: NVIDIA_API_KEY or NVIDIA_BASE_URL missing. AI features will be limited."
+    )
 
 # Gemini Client Initialization
 genai_client = None
@@ -90,12 +111,14 @@ else:
 
 # --- API ROUTES ---
 
-#--- Home Route ---
+
+# --- Home Route ---
 @app.route("/")
 def home():
     return "creAItr backend running", 200
 
-#--- AUTHENTICATION ROUTES ---
+
+# --- AUTHENTICATION ROUTES ---
 
 
 @app.route("/auth/register", methods=["POST"])
@@ -358,8 +381,7 @@ def update_profile():
 
     # Update user in database
     result = users_collection.update_one(
-        {"_id": ObjectId(request.user_id)},
-        {"$set": {"name": full_name}}
+        {"_id": ObjectId(request.user_id)}, {"$set": {"name": full_name}}
     )
 
     if result.modified_count == 0 and result.matched_count == 0:
@@ -378,7 +400,7 @@ def update_profile():
                 "picture": user.get("picture", ""),
                 "provider": "google" if user.get("googleId") else "email",
                 "hasPassword": bool(user.get("password")),
-            }
+            },
         }
     )
 
@@ -404,22 +426,20 @@ def update_password():
     # If user has an existing password, they MUST provide and verify the current one
     if user.get("password"):
         if not current_password:
-            return jsonify({"error": "Current password is required to set a new one"}), 400
-        
+            return jsonify(
+                {"error": "Current password is required to set a new one"}
+            ), 400
+
         if not verify_password(current_password, user["password"]):
             return jsonify({"error": "Invalid current password"}), 401
 
     # Hash and update the new password
     hashed_password = hash_password(new_password)
     users_collection.update_one(
-        {"_id": ObjectId(request.user_id)},
-        {"$set": {"password": hashed_password}}
+        {"_id": ObjectId(request.user_id)}, {"$set": {"password": hashed_password}}
     )
 
-    return jsonify({
-        "message": "Password updated successfully",
-        "hasPassword": True
-    })
+    return jsonify({"message": "Password updated successfully", "hasPassword": True})
 
 
 @app.route("/auth/profile/context", methods=["GET"])
@@ -429,13 +449,11 @@ def get_global_context():
     user = users_collection.find_one({"_id": ObjectId(request.user_id)})
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
-    context = user.get("globalContext", {
-        "contentTypes": [],
-        "preferences": "",
-        "instructions": ""
-    })
-    
+
+    context = user.get(
+        "globalContext", {"contentTypes": [], "preferences": "", "instructions": ""}
+    )
+
     return jsonify(context)
 
 
@@ -444,7 +462,7 @@ def get_global_context():
 def update_global_context():
     """Update user's global context"""
     data = request.json
-    
+
     content_types = data.get("contentTypes", [])
     preferences = data.get("preferences", "").strip()
     instructions = data.get("instructions", "").strip()
@@ -452,33 +470,37 @@ def update_global_context():
     # Validation
     if not isinstance(content_types, list):
         return jsonify({"error": "Content types must be a list"}), 400
-    
+
     if len(preferences) > 2000:
         return jsonify({"error": "Preferences must be less than 2000 characters"}), 400
-        
+
     if len(instructions) > 5000:
         return jsonify({"error": "Instructions must be less than 5000 characters"}), 400
 
     # Update user in database
     users_collection.update_one(
         {"_id": ObjectId(request.user_id)},
-        {"$set": {
+        {
+            "$set": {
+                "globalContext": {
+                    "contentTypes": content_types,
+                    "preferences": preferences,
+                    "instructions": instructions,
+                }
+            }
+        },
+    )
+
+    return jsonify(
+        {
+            "message": "Global context updated successfully",
             "globalContext": {
                 "contentTypes": content_types,
                 "preferences": preferences,
-                "instructions": instructions
-            }
-        }}
-    )
-
-    return jsonify({
-        "message": "Global context updated successfully",
-        "globalContext": {
-            "contentTypes": content_types,
-            "preferences": preferences,
-            "instructions": instructions
+                "instructions": instructions,
+            },
         }
-    })
+    )
 
 
 @app.route("/auth/profile/picture", methods=["POST"])
@@ -489,7 +511,7 @@ def upload_profile_picture():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    
+
     # Check file size (max 5MB for profile pic)
     file.seek(0, 2)
     file_size = file.tell()
@@ -505,14 +527,12 @@ def upload_profile_picture():
 
         # Update user in database
         users_collection.update_one(
-            {"_id": ObjectId(request.user_id)},
-            {"$set": {"picture": picture_url}}
+            {"_id": ObjectId(request.user_id)}, {"$set": {"picture": picture_url}}
         )
 
-        return jsonify({
-            "message": "Profile picture updated successfully",
-            "picture": picture_url
-        })
+        return jsonify(
+            {"message": "Profile picture updated successfully", "picture": picture_url}
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -524,7 +544,7 @@ def delete_account():
     from mongodb import db, channel_stats_collection
 
     required_confirmation_text = "I Am Sure That I Am Responsible To Delete My Account"
-    
+
     user_id = request.user_id
     archived_users_collection = db["archived_users"]
 
@@ -542,7 +562,11 @@ def delete_account():
             return jsonify({"error": "Invalid confirmation statement"}), 400
 
         if not user.get("password"):
-            return jsonify({"error": "This account has no password. Please set a password in Account settings before deleting."}), 400
+            return jsonify(
+                {
+                    "error": "This account has no password. Please set a password in Account settings before deleting."
+                }
+            ), 400
 
         if not password:
             return jsonify({"error": "Password is required"}), 400
@@ -564,14 +588,14 @@ def delete_account():
                 "projects": projects,
                 "tasks": tasks,
                 "chats": chats,
-                "channel_stats": stats
+                "channel_stats": stats,
             },
             "deletedAt": datetime.datetime.now().isoformat(),
             "reason": "User requested account deletion",
             "deletionConfirmation": {
                 "statement": required_confirmation_text,
-                "verifiedPassword": True
-            }
+                "verifiedPassword": True,
+            },
         }
 
         # 3. Insert into archive collection
@@ -588,7 +612,9 @@ def delete_account():
 
     except Exception as e:
         print(f"Error during account deletion: {e}")
-        return jsonify({"error": "Failed to delete account. Please try again later."}), 500
+        return jsonify(
+            {"error": "Failed to delete account. Please try again later."}
+        ), 500
 
 
 @app.route("/auth/export", methods=["GET"])
@@ -596,7 +622,7 @@ def delete_account():
 def export_data():
     """Export all user data as a downloadable JSON file"""
     from mongodb import channel_stats_collection
-    
+
     user_id = request.user_id
 
     try:
@@ -618,38 +644,44 @@ def export_data():
 
         # 2. Fetch associated data
         projects = list(projects_collection.find({"userId": user_id}))
-        for p in projects: p["_id"] = str(p["_id"])
-        
+        for p in projects:
+            p["_id"] = str(p["_id"])
+
         tasks = list(tasks_collection.find({"userId": user_id}))
-        for t in tasks: t["_id"] = str(t["_id"])
-        
+        for t in tasks:
+            t["_id"] = str(t["_id"])
+
         chats = list(chats_collection.find({"userId": user_id}))
-        for c in chats: c["_id"] = str(c["_id"])
-        
+        for c in chats:
+            c["_id"] = str(c["_id"])
+
         stats = list(channel_stats_collection.find({"userId": user_id}))
-        for s in stats: s["_id"] = str(s["_id"])
+        for s in stats:
+            s["_id"] = str(s["_id"])
 
         # 3. Create export document
         export_doc = {
             "metadata": {
                 "exportedAt": datetime.datetime.now().isoformat(),
                 "version": "1.0",
-                "appName": "creAItr"
+                "appName": "creAItr",
             },
             "profile": user_data,
             "data": {
                 "projects": projects,
                 "tasks": tasks,
                 "chats": chats,
-                "channel_stats": stats
-            }
+                "channel_stats": stats,
+            },
         }
 
         # 4. Return as JSON file download
         return Response(
             json_util_dumps(export_doc),
             mimetype="application/json",
-            headers={"Content-disposition": f"attachment; filename=creaitr-data-{user_data['email']}.json"}
+            headers={
+                "Content-disposition": f"attachment; filename=creaitr-data-{user_data['email']}.json"
+            },
         )
 
     except Exception as e:
@@ -687,7 +719,7 @@ def get_analytics():
     for s in snapshots:
         day_str = s["recordedAt"].date().isoformat()
         seen_dates[day_str] = s  # Later entries overwrite earlier ones
-    
+
     # Convert back to sorted list
     unique_snapshots = [seen_dates[key] for key in sorted(seen_dates.keys())]
 
@@ -859,7 +891,7 @@ def youtube_connect():
     # YouTube Analytics API scope
     scopes = [
         "https://www.googleapis.com/auth/yt-analytics.readonly",
-        "https://www.googleapis.com/auth/youtube.readonly"
+        "https://www.googleapis.com/auth/youtube.readonly",
     ]
 
     params = {
@@ -869,7 +901,7 @@ def youtube_connect():
         "scope": " ".join(scopes),
         "access_type": "offline",
         "prompt": "consent",
-        "state": request.user_id  # Pass user ID to callback
+        "state": request.user_id,  # Pass user ID to callback
     }
 
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
@@ -898,7 +930,7 @@ def youtube_callback():
         "client_id": config.GOOGLE_CLIENT_ID,
         "client_secret": config.GOOGLE_CLIENT_SECRET,
         "redirect_uri": config.YOUTUBE_ANALYTICS_REDIRECT_URI,
-        "grant_type": "authorization_code"
+        "grant_type": "authorization_code",
     }
 
     try:
@@ -916,12 +948,11 @@ def youtube_callback():
                     "youtubeAnalyticsTokens": {
                         "access_token": tokens["access_token"],
                         "refresh_token": tokens.get("refresh_token"),
-                        "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(
-                            seconds=tokens.get("expires_in", 3600)
-                        )
+                        "expires_at": datetime.datetime.now(datetime.UTC)
+                        + datetime.timedelta(seconds=tokens.get("expires_in", 3600)),
                     }
                 }
-            }
+            },
         )
 
         return """
@@ -989,7 +1020,7 @@ def refresh_youtube_token(user_id):
         "client_id": config.GOOGLE_CLIENT_ID,
         "client_secret": config.GOOGLE_CLIENT_SECRET,
         "refresh_token": refresh_token,
-        "grant_type": "refresh_token"
+        "grant_type": "refresh_token",
     }
 
     try:
@@ -1005,10 +1036,12 @@ def refresh_youtube_token(user_id):
             {
                 "$set": {
                     "youtubeAnalyticsTokens.access_token": new_tokens["access_token"],
-                    "youtubeAnalyticsTokens.expires_at": datetime.datetime.now(datetime.UTC)
-                    + datetime.timedelta(seconds=new_tokens.get("expires_in", 3600))
+                    "youtubeAnalyticsTokens.expires_at": datetime.datetime.now(
+                        datetime.UTC
+                    )
+                    + datetime.timedelta(seconds=new_tokens.get("expires_in", 3600)),
                 }
-            }
+            },
         )
 
         return new_tokens["access_token"]
@@ -1049,7 +1082,9 @@ def get_analytics_range():
     # Get access token (refresh if needed)
     access_token = refresh_youtube_token(request.user_id)
     if not access_token:
-        return jsonify({"error": "YouTube Analytics not connected. Please connect first."}), 401
+        return jsonify(
+            {"error": "YouTube Analytics not connected. Please connect first."}
+        ), 401
 
     try:
         analytics_payload = fetch_youtube_analytics_range(
@@ -1059,11 +1094,13 @@ def get_analytics_range():
             end_date=end_date,
         )
 
-        return jsonify({
-            "columns": analytics_payload["columns"],
-            "rows": analytics_payload["rows"],
-            "source": "youtube_analytics_api"
-        })
+        return jsonify(
+            {
+                "columns": analytics_payload["columns"],
+                "rows": analytics_payload["rows"],
+                "source": "youtube_analytics_api",
+            }
+        )
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -1077,28 +1114,31 @@ def get_analytics_range():
 @app.route("/trends", methods=["GET"])
 @token_required
 def get_trends():
-    """Fetch trending topics from news and stored data"""
+    """Fetch trending topics with optional category or query filtering"""
+    category = request.args.get("category")
+    query = request.args.get("q")
+
     try:
-        # Get trending news objects from NewsAPI
-        all_trends = fetch_newsapi_data()
-        
-        # If NewsAPI fails or returns few, try Google News RSS
-        if len(all_trends) < 3:
-            rss_news = fetch_and_store_news()
-            all_trends.extend(rss_news)
-            
-        # Deduplicate by title
-        seen_titles = set()
-        unique_trends = []
-        for trend in all_trends:
-            title = trend.get("title")
-            if title and title not in seen_titles:
-                seen_titles.add(title)
-                unique_trends.append(trend)
-        
-        # Limit
-        trends = unique_trends[:6]
-        
+        # If category or query is provided, use fetch_trends
+        if category or query:
+            trends = fetch_trends(category=category, query=query)
+        else:
+            # Legacy behavior/default: Get top general news
+            all_trends = fetch_newsapi_data()
+            if len(all_trends) < 3:
+                rss_news = fetch_and_store_news()
+                all_trends.extend(rss_news)
+
+            # Deduplicate by title
+            seen_titles = set()
+            unique_trends = []
+            for trend in all_trends:
+                title = trend.get("title")
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    unique_trends.append(trend)
+            trends = unique_trends
+
         return jsonify({"trends": trends})
     except Exception as e:
         print(f"Error fetching trends: {e}")
@@ -1111,7 +1151,7 @@ def generate_trend_idea():
     """Generate a video idea from a trend and add it to the Kanban board"""
     data = request.json
     trend = data.get("trend")
-    
+
     if not trend:
         return jsonify({"error": "Trend is required"}), 400
 
@@ -1138,9 +1178,10 @@ Schema:
         )
 
         idea_raw = completion.choices[0].message.content
-        
+
         # Simple extraction
         import re
+
         json_match = re.search(r"(\{.*\})", idea_raw, re.DOTALL)
         if json_match:
             idea = json.loads(json_match.group(1))
@@ -1148,14 +1189,13 @@ Schema:
             # Fallback if AI fails to return JSON
             idea = {
                 "title": f"New Video: {trend}",
-                "description": f"A deep dive into {trend} and why it's trending today."
+                "description": f"A deep dive into {trend} and why it's trending today.",
             }
 
         # 2. Add to Kanban Board (To Do column)
         status = "todo"
         last_task = tasks_collection.find_one(
-            {"userId": request.user_id, "status": status},
-            sort=[("order", -1)]
+            {"userId": request.user_id, "status": status}, sort=[("order", -1)]
         )
         new_order = (last_task["order"] + 1) if last_task else 0
 
@@ -1164,21 +1204,22 @@ Schema:
             "title": idea["title"],
             "description": idea["description"],
             "status": status,
-            "dueDate": (datetime.datetime.now() + datetime.timedelta(days=3)).strftime("%Y-%m-%d"),
-            "projectId": "", # General task
+            "dueDate": (datetime.datetime.now() + datetime.timedelta(days=3)).strftime(
+                "%Y-%m-%d"
+            ),
+            "projectId": "",  # General task
             "order": new_order,
             "createdAt": datetime.datetime.now().isoformat(),
             "source": "trend_spotter",
-            "trendSource": trend
+            "trendSource": trend,
         }
-        
+
         result = tasks_collection.insert_one(task)
         task["_id"] = str(result.inserted_id)
 
-        return jsonify({
-            "message": "Video idea generated and added to To-Do!",
-            "task": task
-        }), 201
+        return jsonify(
+            {"message": "Video idea generated and added to To-Do!", "task": task}
+        ), 201
 
     except Exception as e:
         print(f"Error generating trend idea: {e}")
@@ -1214,7 +1255,9 @@ def get_analytics_summary():
 
     access_token = refresh_youtube_token(request.user_id)
     if not access_token:
-        return jsonify({"error": "YouTube Analytics not connected. Please connect first."}), 401
+        return jsonify(
+            {"error": "YouTube Analytics not connected. Please connect first."}
+        ), 401
 
     try:
         analytics_payload = fetch_youtube_analytics_range(
@@ -1265,7 +1308,10 @@ Rules:
             model=config.MODEL_NAME,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analyze this YouTube analytics JSON:\n{context_json}"},
+                {
+                    "role": "user",
+                    "content": f"Analyze this YouTube analytics JSON:\n{context_json}",
+                },
             ],
             temperature=0.15,
             top_p=0.9,
@@ -1289,7 +1335,9 @@ Rules:
 
         def _extract_json_candidate(text: str) -> str:
             # Try markdown code block first.
-            md_block = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
+            md_block = re.search(
+                r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL
+            )
             if md_block:
                 return md_block.group(1).strip()
 
@@ -1310,12 +1358,12 @@ Rules:
                 "trends": [
                     "Daily performance is uneven; focus on replicating high-performing upload days.",
                     "Watch time and net subscribers should be tracked together to validate content quality.",
-                    "Consistency in uploads and stronger retention hooks can stabilize growth."
+                    "Consistency in uploads and stronger retention hooks can stabilize growth.",
                 ],
                 "recommendations": [
                     "Publish around your top-performing day/time and keep cadence consistent.",
                     "Improve first 30 seconds for better retention and higher watch time.",
-                    "Use end screens and pinned CTAs to convert viewers into subscribers."
+                    "Use end screens and pinned CTAs to convert viewers into subscribers.",
                 ],
                 "growthWalkthrough": [
                     {
@@ -1323,35 +1371,35 @@ Rules:
                         "action": "Identify the top 3 videos by views and watch time in this date range.",
                         "why": "These videos reveal topics/formats already validated by your audience.",
                         "metricTarget": "Document 3 repeatable content patterns.",
-                        "timeframe": "Day 1"
+                        "timeframe": "Day 1",
                     },
                     {
                         "step": "Create 2 follow-up videos",
                         "action": "Publish two videos that reuse winning topics, titles, and thumbnail style.",
                         "why": "Doubling down on proven formats improves probability of repeat performance.",
                         "metricTarget": "2 uploads this week with CTR and retention tracking.",
-                        "timeframe": "Days 2-4"
+                        "timeframe": "Days 2-4",
                     },
                     {
                         "step": "Retention optimization",
                         "action": "Rewrite intros to deliver value in first 15-30 seconds and remove slow openings.",
                         "why": "Higher retention raises recommendations and total watch time.",
                         "metricTarget": "Increase average watch time by 10-15%.",
-                        "timeframe": "Days 3-6"
+                        "timeframe": "Days 3-6",
                     },
                     {
                         "step": "Subscriber conversion",
                         "action": "Add one clear CTA in-video, one in description, and one in end screen.",
                         "why": "Multiple conversion touchpoints increase net subscriber gains.",
                         "metricTarget": "Improve net subscribers per 1,000 views.",
-                        "timeframe": "Days 5-7"
+                        "timeframe": "Days 5-7",
                     },
                     {
                         "step": "Weekly review loop",
                         "action": "Review results weekly and keep only strategies that improved metrics.",
                         "why": "Fast iteration compounds growth and prevents wasted effort.",
                         "metricTarget": "Week-over-week gains in views, watch time, and net subscribers.",
-                        "timeframe": "End of week"
+                        "timeframe": "End of week",
                     },
                 ],
             }
@@ -1370,7 +1418,11 @@ Rules:
             or _fallback_summary()["performanceSnapshot"],
             "trends": [
                 _clean_text(item)
-                for item in (parsed.get("trends") if isinstance(parsed.get("trends"), list) else [])
+                for item in (
+                    parsed.get("trends")
+                    if isinstance(parsed.get("trends"), list)
+                    else []
+                )
                 if _clean_text(item)
             ][:4],
             "recommendations": [
@@ -1401,7 +1453,9 @@ Rules:
                     final_summary["growthWalkthrough"].append(normalized)
 
         if not final_summary["growthWalkthrough"]:
-            final_summary["growthWalkthrough"] = _fallback_summary()["growthWalkthrough"]
+            final_summary["growthWalkthrough"] = _fallback_summary()[
+                "growthWalkthrough"
+            ]
         if not final_summary["trends"]:
             final_summary["trends"] = _fallback_summary()["trends"]
         if not final_summary["recommendations"]:
@@ -1417,7 +1471,9 @@ Rules:
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"Failed to generate analytics summary: {str(e)}"}), 500
+        return jsonify(
+            {"error": f"Failed to generate analytics summary: {str(e)}"}
+        ), 500
 
 
 @app.route("/analytics/ai-chat", methods=["POST"])
@@ -1501,7 +1557,9 @@ def analytics_ai_chat():
 
         return jsonify({"text": text})
     except Exception as e:
-        return jsonify({"error": f"Failed to generate analytics chat response: {str(e)}"}), 500
+        return jsonify(
+            {"error": f"Failed to generate analytics chat response: {str(e)}"}
+        ), 500
 
 
 @app.route("/tts", methods=["POST"])
@@ -1523,8 +1581,9 @@ update_status = {
     "is_updating": False,
     "last_update": None,
     "progress": "",
-    "error": None
+    "error": None,
 }
+
 
 def run_update_task():
     global update_status
@@ -1551,18 +1610,22 @@ def run_update_task():
     finally:
         update_status["is_updating"] = False
 
+
 @app.route("/update-news", methods=["POST"])
 @token_required
 def update_news():
     """Trigger background news & PDF refresh"""
     global update_status
     if update_status["is_updating"]:
-        return jsonify({"status": "already_updating", "message": "Update already in progress"}), 409
-    
+        return jsonify(
+            {"status": "already_updating", "message": "Update already in progress"}
+        ), 409
+
     thread = threading.Thread(target=run_update_task)
     thread.start()
-    
+
     return jsonify({"status": "started", "message": "Background update started"})
+
 
 @app.route("/update-news/status", methods=["GET"])
 @token_required
@@ -1579,12 +1642,12 @@ def chat():
 
     # Try to get user context if authenticated
     global_context = None
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
         payload = verify_token(token)
         if payload:
-            user = users_collection.find_one({"_id": ObjectId(payload['user_id'])})
+            user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
             if user:
                 global_context = user.get("globalContext")
 
@@ -1605,11 +1668,13 @@ def chat():
             content_types = global_context.get("contentTypes", [])
             preferences = global_context.get("preferences", "")
             instructions = global_context.get("instructions", "")
-            
+
             if content_types or preferences or instructions:
                 global_context_str = "USER GLOBAL CONTEXT & PREFERENCES:\n"
                 if content_types:
-                    global_context_str += f"- Content Types: {', '.join(content_types)}\n"
+                    global_context_str += (
+                        f"- Content Types: {', '.join(content_types)}\n"
+                    )
                 if preferences:
                     global_context_str += f"- Preferences: {preferences}\n"
                 if instructions:
@@ -1812,12 +1877,12 @@ def generate_writing():
 
     # Try to get user context if authenticated
     global_context = None
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
         payload = verify_token(token)
         if payload:
-            user = users_collection.find_one({"_id": ObjectId(payload['user_id'])})
+            user = users_collection.find_one({"_id": ObjectId(payload["user_id"])})
             if user:
                 global_context = user.get("globalContext")
 
@@ -1827,7 +1892,7 @@ def generate_writing():
         content_types = global_context.get("contentTypes", [])
         preferences = global_context.get("preferences", "")
         instructions = global_context.get("instructions", "")
-        
+
         if content_types or preferences or instructions:
             global_context_str = "USER GLOBAL CONTEXT & PREFERENCES:\n"
             if content_types:
@@ -1976,26 +2041,30 @@ def get_projects():
     projects = list(
         projects_collection.find({"userId": request.user_id}).sort("created", -1)
     )
-    
+
     # Get all tasks for this user to calculate stats
     all_tasks = list(tasks_collection.find({"userId": request.user_id}))
-    
+
     # Convert ObjectId to string for JSON serialization and add stats
     for project in projects:
         project_id_str = str(project["_id"])
         project["_id"] = project_id_str
-        
+
         # Calculate stats for this project
-        project_tasks = [t for t in all_tasks if str(t.get("projectId")) == project_id_str]
+        project_tasks = [
+            t for t in all_tasks if str(t.get("projectId")) == project_id_str
+        ]
         total_tasks = len(project_tasks)
         completed_tasks = len([t for t in project_tasks if t.get("status") == "done"])
-        
+
         project["stats"] = {
             "totalTasks": total_tasks,
             "completedTasks": completed_tasks,
-            "percentComplete": round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
+            "percentComplete": round(
+                (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1
+            ),
         }
-        
+
     return jsonify(projects)
 
 
@@ -2082,11 +2151,10 @@ def create_task():
     """Create a new task"""
     data = request.json
     status = data.get("status", "todo")
-    
+
     # Get max order for this status
     last_task = tasks_collection.find_one(
-        {"userId": request.user_id, "status": status},
-        sort=[("order", -1)]
+        {"userId": request.user_id, "status": status}, sort=[("order", -1)]
     )
     new_order = (last_task["order"] + 1) if last_task else 0
 
@@ -2393,5 +2461,5 @@ def rename_chat_session(chat_id):
     return jsonify({"error": "Chat session not found or access denied"}), 404
 
 
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=config.PORT, debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=config.PORT, debug=True)

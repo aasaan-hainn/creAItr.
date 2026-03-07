@@ -43,60 +43,35 @@ def fetch_and_store_news():
 
 
 def fetch_newsapi_data():
-    print("Fetching data from NewsAPI...")
+    return fetch_trends()
+
+def fetch_trends(category=None, query=None):
+    print(f"Fetching trends from NewsAPI (category={category}, query={query})...")
     all_articles = []
     
-    # 1. Get Local News (West Bengal)
-    local_url = f"https://newsapi.org/v2/everything?q=West+Bengal+scheme&sortBy=publishedAt&apiKey={config.NEWS_API_KEY}"
+    # Base URL for NewsAPI
+    if category and category != 'all':
+        url = f"https://newsapi.org/v2/top-headlines?country=us&category={category}&apiKey={config.NEWS_API_KEY}"
+    elif query:
+        url = f"https://newsapi.org/v2/everything?q={query}&sortBy=publishedAt&apiKey={config.NEWS_API_KEY}"
+    else:
+        # Default to general top headlines if nothing specified
+        url = f"https://newsapi.org/v2/top-headlines?country=us&category=general&apiKey={config.NEWS_API_KEY}"
+
     try:
-        local_resp = requests.get(local_url).json()
-        if local_resp.get("status") == "ok":
-            for article in local_resp["articles"][:3]: # Get top 3 local
+        resp = requests.get(url).json()
+        if resp.get("status") == "ok":
+            for article in resp["articles"]:
                 all_articles.append({
                     "title": article["title"],
                     "description": article["description"],
                     "content": article["content"],
-                    "source": "Local News (West Bengal)",
+                    "urlToImage": article.get("urlToImage"),
+                    "url": article.get("url"),
+                    "source": article.get("source", {}).get("name", "News"),
                     "publishedAt": article.get("publishedAt", "")
                 })
     except Exception as e:
-        print(f"Error fetching local news: {e}")
+        print(f"Error fetching trends: {e}")
 
-    # 2. Get National News (India)
-    national_url = f"https://newsapi.org/v2/top-headlines?country=in&category=general&apiKey={config.NEWS_API_KEY}"
-    try:
-        nat_resp = requests.get(national_url).json()
-        if nat_resp.get("status") == "ok":
-            for article in nat_resp["articles"][:3]: # Get top 3 national
-                all_articles.append({
-                    "title": article["title"],
-                    "description": article["description"],
-                    "content": article["content"],
-                    "source": "National News (India)",
-                    "publishedAt": article.get("publishedAt", "")
-                })
-    except Exception as e:
-        print(f"Error fetching national news: {e}")
-
-    # 3. Store in ChromaDB
-    for idx, article in enumerate(all_articles):
-        # Format Date
-        pub_date = article['publishedAt'][:10] if article['publishedAt'] else datetime.datetime.now().strftime("%Y-%m-%d")
-        
-        full_text = f"""
-        [Published: {pub_date}]
-        SOURCE: {article['source']}
-        TITLE: {article['title']}
-        SUMMARY: {article['description']}
-        CONTENT: {article['content']}
-        """
-        
-        unique_id = f"newsapi_{int(time.time())}_{idx}"
-        
-        collection.upsert(
-            ids=[unique_id],
-            documents=[full_text],
-            metadatas=[{"type": "news", "title": article['title'], "date": pub_date}]
-        )
-    
     return all_articles
