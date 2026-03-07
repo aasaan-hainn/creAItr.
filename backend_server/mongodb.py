@@ -12,6 +12,7 @@ users_collection = db["users"]
 chats_collection = db["chats"]
 channel_stats_collection = db["channel_stats"]
 tasks_collection = db["tasks"]
+vault_collection = db["vault"]
 
 try:
     print("Setting up MongoDB indices...")

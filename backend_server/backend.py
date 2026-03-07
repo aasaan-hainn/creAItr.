@@ -33,6 +33,7 @@ from mongodb import (
     users_collection,
     chats_collection,
     tasks_collection,
+    vault_collection,
 )
 from news_ingest import (
     fetch_and_store_news,
@@ -42,7 +43,7 @@ from news_ingest import (
 )
 from pdf_ingest import ingest_local_pdfs
 from tts import generate_tts_audio
-from cloudinary_config import upload_image, upload_video
+from cloudinary_config import upload_image, upload_video, upload_file, delete_media
 from auth import (
     hash_password,
     verify_password,
@@ -2459,6 +2460,113 @@ def rename_chat_session(chat_id):
         return jsonify({"status": "renamed", "title": title})
 
     return jsonify({"error": "Chat session not found or access denied"}), 404
+
+
+# --- VAULT ROUTES ---
+
+
+@app.route("/vault", methods=["GET"])
+@token_required
+def get_vault():
+    """Get all vault items for the logged-in user"""
+    items = list(vault_collection.find({"userId": request.user_id}).sort("created", -1))
+    for item in items:
+        item["_id"] = str(item["_id"])
+    return jsonify(items)
+
+
+@app.route("/vault", methods=["POST"])
+@token_required
+def upload_to_vault():
+    """Upload a file to the vault"""
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files["file"]
+    heading = request.form.get("heading")
+    description = request.form.get("description")
+
+    if not heading or heading.strip() == "":
+        heading = f"Item {datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    if not description or description.strip() == "":
+        description = "Stored in vault for easy access across projects."
+
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    try:
+        # Upload to Cloudinary
+        result = upload_file(file)
+
+        item = {
+            "userId": request.user_id,
+            "heading": heading,
+            "description": description,
+            "url": result["url"],
+            "publicId": result["public_id"],
+            "resourceType": result["resource_type"],
+            "fileName": file.filename,
+            "created": datetime.datetime.now().isoformat(),
+        }
+
+        db_result = vault_collection.insert_one(item)
+        item["_id"] = str(db_result.inserted_id)
+
+        return jsonify(item), 201
+    except Exception as e:
+        print(f"Error uploading to vault: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/vault/<item_id>", methods=["PUT"])
+@token_required
+def update_vault_item(item_id):
+    """Update vault item metadata"""
+    data = request.json
+    heading = data.get("heading")
+    description = data.get("description")
+
+    update_data = {}
+    if heading is not None:
+        update_data["heading"] = heading
+    if description is not None:
+        update_data["description"] = description
+
+    if not update_data:
+        return jsonify({"error": "No data to update"}), 400
+
+    result = vault_collection.update_one(
+        {"_id": ObjectId(item_id), "userId": request.user_id}, {"$set": update_data}
+    )
+
+    if result.modified_count > 0:
+        return jsonify({"status": "updated"})
+
+    return jsonify({"error": "Item not found or access denied"}), 404
+
+
+@app.route("/vault/<item_id>", methods=["DELETE"])
+@token_required
+def delete_vault_item(item_id):
+    """Delete a vault item"""
+    item = vault_collection.find_one(
+        {"_id": ObjectId(item_id), "userId": request.user_id}
+    )
+    if not item:
+        return jsonify({"error": "Item not found"}), 404
+
+    try:
+        # Delete from Cloudinary
+        delete_media(item["publicId"], resource_type=item["resourceType"])
+
+        # Delete from DB
+        vault_collection.delete_one({"_id": ObjectId(item_id)})
+
+        return jsonify({"status": "deleted"})
+    except Exception as e:
+        print(f"Error deleting from vault: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

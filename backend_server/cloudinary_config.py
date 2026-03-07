@@ -34,6 +34,19 @@ def upload_video(file, folder="qwenify/videos"):
         "public_id": result["public_id"]
     }
 
+def upload_file(file, folder="qwenify/vault"):
+    """Upload any file to Cloudinary"""
+    result = cloudinary.uploader.upload(
+        file,
+        folder=folder,
+        resource_type="auto"
+    )
+    return {
+        "url": result["secure_url"],
+        "public_id": result["public_id"],
+        "resource_type": result.get("resource_type", "raw")
+    }
+
 def delete_media(public_id, resource_type="image"):
     """Delete media from Cloudinary"""
     return cloudinary.uploader.destroy(public_id, resource_type=resource_type)

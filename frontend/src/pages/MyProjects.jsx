@@ -21,7 +21,8 @@ import {
     IconChevronDown,
     IconChevronUp,
     IconExternalLink,
-    IconNews
+    IconNews,
+    IconArchive
 } from "@tabler/icons-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -30,6 +31,7 @@ const VideoEditor = lazy(() => import('../components/tools/VideoEditor'));
 const PhotoEditor = lazy(() => import('../components/tools/PhotoEditor'));
 const Canvas = lazy(() => import('../components/tools/Canvas'));
 const WritingArea = lazy(() => import('../components/tools/WritingArea'));
+const Vault = lazy(() => import('../components/tools/Vault'));
 const YouTubeStats = lazy(() => import('../components/YouTubeStats'));
 const KanbanBoard = lazy(() => import('../components/KanbanBoard'));
 
@@ -247,6 +249,7 @@ const MyProjects = () => {
     const [showStats, setShowStats] = useState(false);
     const [showKanban, setShowKanban] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isVaultOpen, setIsVaultOpen] = useState(false);
 
     // Helper function to get auth headers
     const getAuthHeaders = useCallback(() => ({
@@ -355,8 +358,17 @@ const MyProjects = () => {
         onClick: () => setActiveTool(tool.id)
     })), [tools]);
 
+    const handleUseVaultItem = (item, toolId) => {
+        // Here we define how each tool uses a vault item
+        // For now, we'll switch to the tool and maybe alert or pass state
+        setActiveTool(toolId);
+        // In a real implementation, we would use a global state or tool-specific context 
+        // to actually "load" the item into the tool.
+        alert(`Sending "${item.heading}" to ${toolId}. In the next step, this asset will be automatically loaded into the ${toolId} workspace.`);
+    };
+
     const renderTools = () => {
-        if (!selectedProject) {
+        if (!selectedProject && activeTool !== 'vault') {
             return (
                 <div className="flex items-center justify-center h-full text-slate-500">
                     <div className="text-center">
@@ -368,30 +380,82 @@ const MyProjects = () => {
         }
 
         return (
-            <div className="h-full w-full relative" key={selectedProject}>
-                <div className={activeTool === 'ai-chat' ? "h-full w-full" : "hidden"}>
-                    <AIChat hideSidebar={true} projectId={selectedProject} token={token} />
-                </div>
-                <div className={activeTool === 'video-editor' ? "h-full w-full" : "hidden"}>
-                    <VideoEditor projectId={selectedProject} token={token} />
-                </div>
-                <div className={activeTool === 'photo-editor' ? "h-full w-full" : "hidden"}>
-                    <PhotoEditor projectId={selectedProject} token={token} />
-                </div>
-                <div className={activeTool === 'canvas' ? "h-full w-full" : "hidden"}>
-                    <Canvas projectId={selectedProject} token={token} />
-                </div>
-                <div className={activeTool === 'writing-area' ? "h-full w-full" : "hidden"}>
-                    <WritingArea projectId={selectedProject} token={token} />
-                </div>
-                {!activeTool && (
-                    <div className="flex items-center justify-center h-full text-slate-500">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-light mb-2">Select a Tool</h2>
-                            <p className="text-sm">Choose a tool from the toolbar above to get started</p>
-                        </div>
-                    </div>
-                )}
+            <div className="h-full w-full relative overflow-hidden" key={selectedProject || 'vault-view'}>
+                <AnimatePresence mode="wait">
+                    {activeTool === 'ai-chat' && (
+                        <motion.div 
+                            key="ai-chat"
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="h-full w-full"
+                        >
+                            <AIChat hideSidebar={true} projectId={selectedProject} token={token} />
+                        </motion.div>
+                    )}
+                    {activeTool === 'video-editor' && (
+                        <motion.div 
+                            key="video-editor"
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="h-full w-full"
+                        >
+                            <VideoEditor projectId={selectedProject} token={token} />
+                        </motion.div>
+                    )}
+                    {activeTool === 'photo-editor' && (
+                        <motion.div 
+                            key="photo-editor"
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="h-full w-full"
+                        >
+                            <PhotoEditor projectId={selectedProject} token={token} />
+                        </motion.div>
+                    )}
+                    {activeTool === 'canvas' && (
+                        <motion.div 
+                            key="canvas"
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="h-full w-full"
+                        >
+                            <Canvas projectId={selectedProject} token={token} />
+                        </motion.div>
+                    )}
+                    {activeTool === 'writing-area' && (
+                        <motion.div 
+                            key="writing-area"
+                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="h-full w-full"
+                        >
+                            <WritingArea projectId={selectedProject} token={token} />
+                        </motion.div>
+                    )}
+                    {!activeTool && (
+                        <motion.div 
+                            key="no-tool"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex items-center justify-center h-full text-slate-500"
+                        >
+                            <div className="text-center">
+                                <h2 className="text-2xl font-light mb-2">Select a Tool</h2>
+                                <p className="text-sm">Choose a tool from the toolbar above to get started</p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         );
     };
@@ -557,50 +621,86 @@ const MyProjects = () => {
                                             desktopClassName="bg-transparent scale-90"
                                         />
                                     </div>
-                                    <span className="absolute top-1 left-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                                        <button
+                                            onClick={() => setIsVaultOpen(!isVaultOpen)}
+                                            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl border transition-all group overflow-hidden relative ${
+                                                isVaultOpen
+                                                    ? 'bg-indigo-600/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20'
+                                                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400 hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <IconArchive className={`w-4 h-4 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12 ${isVaultOpen ? 'text-indigo-400' : ''}`} />
+                                            <span className="text-sm font-bold tracking-tight relative z-10">Vault</span>
+                                        </button>
+                                    </div>                                    <span className="absolute top-1 left-3 text-[9px] font-mono text-slate-600 uppercase tracking-widest">
                                         Project Toolbar
                                     </span>
                                 </div>
 
-                                {/* Tool Area */}
-                                <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0">
-                                    <div className="absolute inset-0 overflow-auto">
-                                        {renderTools()}
+                                {/* Main Workspace Area */}
+                                <div className="flex-1 flex flex-row gap-3 min-h-0 relative">
+                                    {/* Tool Area */}
+                                    <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-black/20 border border-white/5 relative min-h-0 transition-all duration-300">
+                                        <div className="absolute inset-0 overflow-auto">
+                                            {renderTools()}
+                                        </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
-                    </Suspense>
-                </div>
-            </div>
 
-            {/* Create Project Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold">Create New Project</h2>
-                            <button
+                                    {/* Vault Sidebar */}
+                                    <AnimatePresence>
+                                        {isVaultOpen && (
+                                            <motion.div
+                                                initial={{ width: 0, opacity: 0, x: 20 }}
+                                                animate={{ width: 320, opacity: 1, x: 0 }}
+                                                exit={{ width: 0, opacity: 0, x: 20 }}
+                                                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                                                className="h-full overflow-hidden shrink-0"
+                                            >
+                                                <Vault 
+                                                    token={token} 
+                                                    onUseItem={handleUseVaultItem} 
+                                                    activeProject={selectedProject}
+                                                    onClose={() => setIsVaultOpen(false)}
+                                                />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                                </>
+                                )}
+                                </Suspense>
+                                </div>
+                                </div>
+
+                                {/* Create Project Modal */}
+                                {showCreateModal && (
+                                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+                                <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md">
+                                <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold">Create New Project</h2>
+                                <button
                                 onClick={() => setShowCreateModal(false)}
                                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                            >
+                                >
                                 <IconX className="w-5 h-5" />
-                            </button>
-                        </div>
+                                </button>
+                                </div>
 
-                        <input
-                            type="text"
-                            placeholder="Project name..."
-                            value={newProjectName}
-                            onChange={(e) => setNewProjectName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && createProject()}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 mb-4"
-                            autoFocus
-                        />
+                                <input
+                                type="text"
+                                placeholder="Project name..."
+                                value={newProjectName}
+                                onChange={(e) => setNewProjectName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && createProject()}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 mb-4"
+                                autoFocus
+                                />
 
-                        <div className="mb-6">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Project Color</label>
-                            <div className="flex flex-wrap gap-3">
+                                <div className="mb-6">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Project Color</label>
+                                <div className="flex flex-wrap gap-3">
                                 {projectColors.map((color) => (
                                     <button
                                         key={color}
@@ -609,29 +709,28 @@ const MyProjects = () => {
                                         style={{ backgroundColor: color }}
                                     />
                                 ))}
-                            </div>
-                        </div>
+                                </div>
+                                </div>
 
-                        <div className="flex gap-3">
-                            <button
+                                <div className="flex gap-3">
+                                <button
                                 onClick={() => setShowCreateModal(false)}
                                 className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
-                            >
+                                >
                                 Cancel
-                            </button>
-                            <button
+                                </button>
+                                <button
                                 onClick={createProject}
                                 disabled={creating || !newProjectName.trim()}
                                 className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                                >
                                 {creating ? 'Creating...' : 'Create Project'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
+                                </button>
+                                </div>
+                                </div>
+                                </div>
+                                )}
+                                </div>
+                                );
+                                };
 export default MyProjects;
