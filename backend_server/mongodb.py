@@ -13,10 +13,16 @@ chats_collection = db["chats"]
 channel_stats_collection = db["channel_stats"]
 tasks_collection = db["tasks"]
 
-# Create unique index on email for users
-users_collection.create_index("email", unique=True)
+try:
+    print("Setting up MongoDB indices...")
+    # Create unique index on email for users
+    users_collection.create_index("email", unique=True)
 
-# Create index for channel stats queries
-channel_stats_collection.create_index([("userId", 1), ("recordedAt", -1)])
+    # Create index for channel stats queries
+    channel_stats_collection.create_index([("userId", 1), ("recordedAt", -1)])
+    print("MongoDB indices set up successfully.")
+except Exception as e:
+    print(f"Warning: Failed to set up MongoDB indices: {e}")
+    print("Application will continue to start, but performance may be impacted.")
 
-print("MongoDB connected successfully!")
+print("MongoDB initialization complete.")

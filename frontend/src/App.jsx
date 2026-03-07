@@ -8,6 +8,7 @@ import Hyperspeed, { hyperspeedPresets } from "./components/Hyperspeed";
 const Chat = lazy(() => import("./pages/Chat"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const MyProjects = lazy(() => import("./pages/MyProjects"));
+const Trends = lazy(() => import("./pages/Trends"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Support = lazy(() => import("./pages/Support"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -67,6 +68,14 @@ const AnimatedRoutes = () => {
           element={
             <PageTransition>
               <MyProjects />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/trends"
+          element={
+            <PageTransition>
+              <Trends />
             </PageTransition>
           }
         />

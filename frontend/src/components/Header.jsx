@@ -11,6 +11,7 @@ const Header = () => {
     const navItems = [
         { label: "Home", href: "/" },
         { label: "Projects", href: "/my-projects" },
+        { label: "Trends", href: "/trends" },
         { label: "Support", href: "/support" },
     ];
 
@@ -20,7 +21,8 @@ const Header = () => {
         const path = location.pathname;
         if (path === '/') return 0;
         if (path.startsWith('/my-projects')) return 1;
-        if (path.startsWith('/support')) return 2;
+        if (path.startsWith('/trends')) return 2;
+        if (path.startsWith('/support')) return 3;
         return -1; // No active index for settings or other pages
     };
 

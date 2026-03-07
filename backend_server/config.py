@@ -15,7 +15,16 @@ RSS_URL = os.getenv("RSS_URL")
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.getenv("DB_PATH", os.path.join(BASE_DIR, "my_local_db"))
+
+# Detect AWS Elastic Beanstalk (EB) environment or Production mode
+IS_PRODUCTION = os.getenv("FLASK_ENV") == "production" or os.path.exists("/var/app/current")
+
+if IS_PRODUCTION:
+    # On AWS EB, /tmp is writable, but /var/app/current may have restrictions
+    DB_PATH = os.getenv("DB_PATH", "/tmp/creaitr_db")
+else:
+    DB_PATH = os.getenv("DB_PATH", os.path.join(BASE_DIR, "my_local_db"))
+
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 
 # MongoDB
