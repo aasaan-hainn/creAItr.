@@ -13,6 +13,7 @@ chats_collection = db["chats"]
 channel_stats_collection = db["channel_stats"]
 tasks_collection = db["tasks"]
 vault_collection = db["vault"]
+calendar_events_collection = db["calendar_events"]
 
 try:
     print("Setting up MongoDB indices...")
@@ -21,6 +22,9 @@ try:
 
     # Create index for channel stats queries
     channel_stats_collection.create_index([("userId", 1), ("recordedAt", -1)])
+    
+    # Create index for calendar events queries
+    calendar_events_collection.create_index([("userId", 1), ("start", 1)])
     print("MongoDB indices set up successfully.")
 except Exception as e:
     print(f"Warning: Failed to set up MongoDB indices: {e}")

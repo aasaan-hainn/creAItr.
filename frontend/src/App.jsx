@@ -12,6 +12,7 @@ const Trends = lazy(() => import("./pages/Trends"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Support = lazy(() => import("./pages/Support"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Calendar = lazy(() => import("./pages/Calendar"));
 
 const RouteLoader = () => (
   <div className="min-h-screen w-full bg-black flex items-center justify-center">
@@ -100,6 +101,14 @@ const AnimatedRoutes = () => {
           element={
             <PageTransition>
               <Settings />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <PageTransition>
+              <Calendar />
             </PageTransition>
           }
         />

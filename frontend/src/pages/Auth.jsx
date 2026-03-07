@@ -29,6 +29,7 @@ const Auth = () => {
 
     // Google Login Flow
     const googleLoginFlow = useGoogleLogin({
+        scope: 'https://www.googleapis.com/auth/calendar',
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
