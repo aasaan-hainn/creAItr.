@@ -255,9 +255,9 @@ const YouTubeStats = ({ token }) => {
         };
     };
 
-    // NVIDIA-backed analytics chat call.
+    // creAItr AI analytics chat call.
     // If your backend route differs, update this endpoint.
-    const fetchNvidiaChatResponse = async (messages, analyticsContext) => {
+    const fetchCreaitrChatResponse = async (messages, analyticsContext) => {
         const systemMessage = {
             role: 'system',
             content: `You are a helpful data analytics assistant for a content creator.
@@ -306,7 +306,7 @@ STRICT FORMATTING RULES:
 
         try {
             const analyticsContext = getCurrentAnalyticsContext();
-            const assistantReply = await fetchNvidiaChatResponse(nextMessages, analyticsContext);
+            const assistantReply = await fetchCreaitrChatResponse(nextMessages, analyticsContext);
             setChatHistory((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
         } catch (err) {
             setChatError(err.message || 'Failed to get AI response');

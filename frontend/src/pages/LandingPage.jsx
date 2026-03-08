@@ -174,7 +174,7 @@ const LandingPage = () => {
                 <FeatureCard
                   icon={Bot}
                   title="creAItr. AI Powered"
-                  description="Leveraging the massive 72B parameter model for unmatched reasoning and coding capabilities."
+                  description="Leveraging the massive creAItr AI model for unmatched reasoning and coding capabilities."
                 />
                 <FeatureCard
                   icon={Globe}
@@ -225,19 +225,21 @@ const LandingPage = () => {
           </section>
         </main>
 
-        <footer className="p-8 text-center text-slate-600 border-t border-white/5 bg-black/80 backdrop-blur-md">
-          <div className="flex justify-center gap-6 mb-4">
-            <a href="#" className="hover:text-purple-400 transition-colors">
-              Twitter
-            </a>
-            <a href="#" className="hover:text-purple-400 transition-colors">
-              GitHub
-            </a>
-            <a href="#" className="hover:text-purple-400 transition-colors">
-              Discord
-            </a>
+        <footer className="p-12 border-t border-white/5 bg-black/80 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-3">
+              <img src="/favicon.png" alt="Logo" className="w-8 h-8 rounded-lg border border-white/10" />
+              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent font-bold text-xl tracking-tighter">creAItr.</span>
+            </div>
+            
+            <div className="flex justify-center gap-8">
+              <a href="#" className="text-slate-500 hover:text-purple-400 transition-colors text-sm uppercase tracking-widest">Twitter</a>
+              <a href="#" className="text-slate-500 hover:text-purple-400 transition-colors text-sm uppercase tracking-widest">GitHub</a>
+              <a href="#" className="text-slate-500 hover:text-purple-400 transition-colors text-sm uppercase tracking-widest">Discord</a>
+            </div>
+
+            <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} creAItr. All rights reserved.</p>
           </div>
-          <p>&copy; {new Date().getFullYear()} creAItr. All rights reserved.</p>
         </footer>
       </div>
     </div>

@@ -47,7 +47,7 @@ const Header = () => {
     }
 
     return (
-        <header className="flex justify-between items-center p-6 lg:px-12 backdrop-blur-[2px] fixed top-0 w-full z-50 border-b border-white/5">
+        <header className="flex justify-between items-center p-6 lg:px-12 bg-black/80 backdrop-blur-md fixed top-0 w-full z-50 border-b border-white/5">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 font-bold text-2xl tracking-tighter cursor-pointer">
                 <img src="/favicon.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-[0_0_15px_-3px_rgba(99,102,241,0.3)] border border-indigo-500/20" />
