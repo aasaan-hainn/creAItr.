@@ -13,6 +13,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Support = lazy(() => import("./pages/Support"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Calendar = lazy(() => import("./pages/Calendar"));
+const Docs = lazy(() => import("./pages/Docs"));
 
 const RouteLoader = () => (
   <div className="min-h-screen w-full bg-black flex items-center justify-center">
@@ -109,6 +110,14 @@ const AnimatedRoutes = () => {
           element={
             <PageTransition>
               <Calendar />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/docs"
+          element={
+            <PageTransition>
+              <Docs />
             </PageTransition>
           }
         />

@@ -18,243 +18,119 @@
 
 # 🎨 creAItr.
 
-> **AI-Powered Creative Platform** — Unleash your creativity with intelligent tools, immersive design, and seamless project management.
+> **The Unified Intelligence Interface** — A high-fidelity creative platform merging advanced neural models with professional production tools.
 
-creAItr. is a full-stack AI-powered creative platform that combines large language models with local retrieval-augmented generation (RAG) capabilities. It provides users with intelligent chat functionality, project management tools, and a comprehensive creative workspace featuring video editing, photo editing, canvas drawing, and rich text writing tools.
-
----
-
-## ✨ Features
-
-### 🤖 AI Chat System
-- **Qwen 2.5 (72B)** powered conversations via NVIDIA API
-- **RAG Integration** with ChromaDB for semantic search
-- **Real-time streaming** responses with reasoning display
-- **Text-to-Speech** with Edge-TTS integration
-- Maintains conversation history and context awareness
-
-### 📁 Project Management & Kanban
-- **Project Workspaces**: Create, organize, and manage multiple projects
-- **Kanban Board**: Full drag-and-drop task board with To Do, In Progress, and Done states
-- **Progress Tracking**: Real-time progress bars and task completion stats for every project
-- **Global Overview**: Unified board to manage all project milestones in one place
-
-### 🛠️ Creative Tools
-| Tool | Description |
-|------|-------------|
-| 💬 **AI Chat** | Integrated chat within projects |
-| 🎬 **Video Editor** | Video editing with Cloudinary integration |
-| 🖼️ **Photo Editor** | Image editing and manipulation tools |
-| 🎨 **Canvas** | Drawing and sketching with Excalidraw |
-| ✍️ **Writing Area** | Rich text editor with React Quill |
-| 🔥 **Trend Spotter** | AI discovery tool for viral content ideas |
-
-### 📚 Knowledge Base
-- **RSS & NewsAPI** integration for real-time news ingestion
-- **PDF Processing** for local document ingestion
-- **Vector Storage** with ChromaDB for fast semantic search
-
-### 📊 YouTube Analytics
-- Channel statistics and growth metrics
-- Historical data visualization
-- Automated snapshot system
+creAItr. is a professional-grade creative ecosystem built for the "Dark Future" aesthetic. It leverages **creAItr AI's** advanced reasoning capabilities alongside a local **Retrieval-Augmented Generation (RAG)** pipeline to provide a deeply contextual workspace for writers, designers, and developers.
 
 ---
 
-## 🎨 Design Philosophy
+## ⚡ Core Systems
 
-creAItr. embodies a **"Dark Future"** aesthetic combining cutting-edge AI with an immersive, cinematic experience:
+### 🧠 Neural Engine
+- **creAItr AI Reasoning**: Integrated with high-speed inference engines for advanced reasoning with transparent reasoning steps.
+- **Dynamic RAG**: Local ChromaDB vector store for semantic indexing of PDFs, RSS feeds, and chat history.
+- **Trend Spotter**: Specialized AI agent for identifying viral content opportunities from global social signals.
+- **Sonic Synthesis**: Edge-TTS integration for low-latency, neural-quality text-to-speech.
 
-- **Minimalist Complexity** — Clean interfaces hiding sophisticated functionality
-- **Cinematic Immersion** — 3D backgrounds and smooth animations creating depth
-- **Glass Morphism** — Modern translucent UI elements with blur effects
-- **AI-First Experience** — Every interaction feels intelligent and responsive
+### 📁 Unified Management
+- **Global Kanban**: Unified drag-and-drop board for managing tasks across all project workstreams.
+- **Asset Vault**: Centralized repository for sharing media and documents across different creative tools.
+- **Creative Calendar**: 3D-inspired scheduling interface for deadline and production management.
+- **YouTube Intelligence**: Real-time channel analytics, growth projections, and performance snapshots.
 
----
-
-## 🏗️ Architecture
-
-```
-creAItr.
-├── frontend/                # React 19 + Vite frontend
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Page components
-│   │   └── context/         # React Context providers
-│   └── ...
-├── backend_server/          # Flask Python backend
-│   ├── backend.py           # Main server file
-│   └── ...
-└── my_local_db/             # ChromaDB vector storage
-```
-
-### Frontend Stack
-- **React 19** with Vite for blazing fast development
-- **TailwindCSS 4** for utility-first styling
-- **Framer Motion** for smooth animations
-- **Three.js + React Three Fiber** for 3D backgrounds
-- **Excalidraw** for canvas functionality
-
-### Backend Stack
-- **Flask** micro web framework
-- **MongoDB** for user data and projects
-- **ChromaDB** for vector embeddings
-- **NVIDIA API** with Qwen 2.5 model
-- **Cloudinary** for media storage
+### 🛠️ Creative Suite
+| Tool | Core Technology | Capability |
+|------|-----------------|------------|
+| 💬 **Project Chat** | creAItr AI + ChromaDB | Context-aware AI assistance within workspaces |
+| 🎬 **Cinematic Editor** | Cloudinary | Professional video processing and secure cloud storage |
+| 🖼️ **Photo Editor** | Canvas API | Real-time image manipulation and filtering |
+| 🎨 **Neural Canvas** | Excalidraw | Rapid prototyping, wireframing, and freehand sketching |
+| ✍️ **Writing Studio** | React Quill | AI-assisted rich text editing with Markdown and word analysis |
+| 📦 **Asset Vault** | Persistent Storage | Cross-tool asset management and sharing |
 
 ---
 
-## 🚀 Quick Start
+## 🎨 Design Philosophy: "Dark Future"
 
-### Prerequisites
+creAItr. implements a bespoke cinematic UI/UX:
+- **Glass Morphism**: Translucent elements with heavy backdrop blurs (Tailwind 4).
+- **Cinematic Motion**: High-performance animations using Motion v12.
+- **Spatial Depth**: Three.js/React Three Fiber backgrounds for immersive interaction.
+- **Non-Linear Navigation**: Animated `GooeyNav` transitions for seamless page switching.
 
-- **Python** 3.8+
-- **Node.js** 18+
-- **MongoDB** 4.4+
-- Memory: 4GB+ recommended
+---
+
+## 🏗️ Technical Stack
+
+### Frontend (Modern React 19)
+- **Vite 7**: Ultra-fast build and development cycle.
+- **TailwindCSS 4**: Advanced utility-first styling.
+- **Three.js + R3F**: Immersive 3D environments.
+- **Motion**: Production-ready animation library.
+- **Excalidraw & React Quill**: Specialized workspace tools.
+
+### Backend (Python Microservices)
+- **Flask**: Lightweight, high-performance API routing.
+- **MongoDB**: Flexible NoSQL storage for profiles and metadata.
+- **ChromaDB**: Native vector storage for local RAG processing.
+- **PyJWT & Bcrypt**: Enterprise-grade security and authentication.
+- **creAItr AI Engine**: High-fidelity large language model inference.
+
+---
+
+## 🚀 Quick Deployment
+
+### Requirements
+- **Hardware**: 4GB+ RAM, GPU optional (inference is API-based).
+- **Runtime**: Python 3.8+, Node.js 18+.
+- **Data**: MongoDB instance.
 
 ### Installation
-
-**1. Clone the repository**
-```bash
-git clone https://github.com/yourusername/creaitr.git
-cd creaitr
-```
-
-**2. Set up environment variables**
-
-Create a `.env` file in the root directory:
-```env
-# AI Model Configuration
-NVIDIA_API_KEY=your_nvidia_api_key
-NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
-MODEL_NAME=nvidia/llama-3.1-nemotron-70b-instruct
-
-# News APIs
-NEWS_API_KEY=your_news_api_key
-RSS_URL=your_rss_feed_url
-
-# Database
-MONGODB_URI=mongodb://localhost:27017
-DB_PATH=./my_local_db
-
-# Authentication
-JWT_SECRET_KEY=your_jwt_secret
-
-# File Storage (Cloudinary)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# YouTube Analytics (Optional)
-YOUTUBE_API_KEY=your_youtube_api_key
-
-# Server
-PORT=5000
-```
-
-**3. Install and run the Backend**
-```bash
-cd backend_server
-pip install -r requirements.txt
-python backend.py
-```
-
-**4. Install and run the Frontend**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-**5. Open your browser**
-
-Navigate to `http://localhost:5173` to access creAItr.
+1. **Clone & Enter**
+   ```bash
+   git clone https://github.com/aasaan-hainn/creAItr..git
+   cd creAItr.
+   ```
+2. **Backend Setup**
+   ```bash
+   cd backend_server
+   pip install -r requirements.txt
+   python backend.py
+   ```
+3. **Frontend Setup**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
 ---
 
-## 📡 API Reference
+## 📡 API Architecture
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/auth/register` | User registration |
-| `POST` | `/auth/login` | User login |
-| `GET` | `/auth/verify` | Token verification |
-| `GET` | `/auth/me` | Get current user profile |
-
-### Chat System
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/chat` | Send message (streaming) |
-| `POST` | `/update-news` | Refresh knowledge base |
-| `POST` | `/tts` | Text-to-speech conversion |
-
-### Projects & Kanban
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/projects` | Get user projects with task stats |
-| `POST` | `/projects` | Create new project |
-| `GET` | `/tasks` | Get all project tasks |
-| `POST` | `/tasks` | Create new Kanban card |
-| `PUT` | `/tasks/:id` | Update task status or order |
-
-### Workspace Tools
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET/PUT` | `/projects/:id/workspace/canvas` | Canvas data |
-| `GET/PUT` | `/projects/:id/workspace/writing` | Writing content |
-| `GET/POST` | `/projects/:id/workspace/chat` | Chat history |
-| `POST` | `/projects/:id/workspace/upload` | Upload media |
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/chat` | Contextual stream from creAItr AI with reasoning |
+| `POST` | `/tts` | Neural speech generation |
+| `GET`  | `/projects` | Workspace metadata and cross-project stats |
+| `PUT`  | `/tasks/:id` | Real-time Kanban state update |
 
 ---
 
-## 🔒 Security
-
-- **JWT Token Authentication** — Secure API access
-- **Bcrypt Password Hashing** — Industry-standard password security
-- **CORS Protection** — Cross-origin request protection
-- **User Data Isolation** — Project and data separation per user
+## 🔒 Security & Privacy
+- **Data Sovereignty**: Your local documents are indexed into **Local Vector Stores**, never sent to model training sets.
+- **Secure Auth**: JWT-secured sessions with bcrypt salted hashing and multi-layered token validation.
+- **Encrypted Pipelines**: AES-256 for data at rest and TLS for all API communications.
 
 ---
 
-## 🗺️ Roadmap
-
-- [ ] Real-time collaboration on projects
-- [ ] Advanced video editing capabilities
-- [ ] AI-powered content generation
-- [ ] Integration with more AI models
-- [ ] Mobile application
-- [ ] Team workspace functionality
-- [ ] WebSocket integration for real-time updates
-- [ ] Redis caching for improved performance
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-## 💬 Support
-
-If you have any questions or run into issues, please open an issue on GitHub.
+## 💬 Support & Documentation
+Detailed guides, API documentation, and security whitepapers are available within the application:
+1. Navigate to **Support**
+2. Click **View Docs** to enter the immersive Documentation portal.
 
 ---
 
 <p align="center">
-  Made with ❤️ by the creAItr. team
+  Built for the visionaries. Made by the creAItr. team.
 </p>

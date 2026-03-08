@@ -1180,8 +1180,14 @@ const Settings = () => {
                 </div>
             </main>
 
-            <footer className="relative z-10 py-8 text-center text-slate-600 border-t border-white/5 bg-black/40 backdrop-blur-md">
-                <p>&copy; {new Date().getFullYear()} creAItr. All rights reserved.</p>
+            <footer className="relative z-10 py-12 border-t border-white/5 bg-black/40 backdrop-blur-md">
+                <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-2">
+                        <img src="/favicon.png" alt="Logo" className="w-8 h-8 opacity-40 grayscale" />
+                        <span className="font-bold tracking-tighter text-slate-500">creAItr.</span>
+                    </div>
+                    <p className="text-slate-600 text-sm">&copy; {new Date().getFullYear()} creAItr. All rights reserved.</p>
+                </div>
             </footer>
         </div>
     );
